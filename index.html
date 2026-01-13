@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historical World Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/timeline.css">
+    <link rel="stylesheet" href="css/info-panel.css">
+    <link rel="stylesheet" href="css/leaderboard.css">
+    <link rel="stylesheet" href="css/graph-panel.css">
+</head>
+<body>
+    <div id="loading" class="loading">
+        <h2>Loading Historical Data...</h2>
+        <p id="loading-polities">Loading polities...</p>
+        <p id="loading-cities">Loading cities...</p>
+    </div>
+
+    <div id="map"></div>
+
+    <div id="info-panel" class="info-panel">
+        <div class="info-panel-header">
+            <h3 id="info-name"></h3>
+            <div class="info-panel-actions">
+                <button class="info-panel-btn" id="info-copy" title="Copy for AI query">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                        <rect x="5" y="5" width="9" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                        <rect x="2" y="2" width="9" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>
+                </button>
+                <a class="info-panel-btn info-wiki-btn" id="info-wiki" title="View on Wikipedia" target="_blank" style="display: none;">
+                    Wiki <span class="wiki-arrow">↗</span>
+                </a>
+                <button class="info-panel-btn info-panel-close" id="info-close" title="Close">&times;</button>
+            </div>
+        </div>
+        <div id="info-subtitle" class="info-panel-subtitle"></div>
+        <div id="info-content"></div>
+    </div>
+
+    <div id="graph-panel" class="graph-panel">
+        <!-- Resize handles -->
+        <div class="graph-resize-handle nw" data-resize="nw"></div>
+        <div class="graph-resize-handle ne" data-resize="ne"></div>
+        <div class="graph-resize-handle sw" data-resize="sw"></div>
+        <div class="graph-resize-handle se" data-resize="se"></div>
+        <div class="graph-resize-edge n" data-resize="n"></div>
+        <div class="graph-resize-edge s" data-resize="s"></div>
+        <div class="graph-resize-edge w" data-resize="w"></div>
+        <div class="graph-resize-edge e" data-resize="e"></div>
+
+        <div class="graph-header">
+            <h4>Historical Trends</h4>
+            <button id="graph-close" class="graph-close" title="Close graph">&times;</button>
+        </div>
+        <div class="metric-tabs">
+            <button class="metric-tab active" data-metric="population">Population</button>
+            <button class="metric-tab" data-metric="civilizations">Civilizations</button>
+            <button class="metric-tab" data-metric="landArea">Land Area</button>
+            <button class="metric-tab" data-metric="cities">Cities</button>
+            <button class="metric-tab" data-metric="urbanPop">Urban Pop</button>
+            <button class="metric-tab" data-metric="gdpPerCapita">GDP/capita</button>
+            <button class="metric-tab" data-metric="largestEmpire">Largest Empire</button>
+            <button class="metric-tab" data-metric="avgAge">Avg Civ Age</button>
+        </div>
+        <div class="graph-content">
+            <div class="graph-current">
+                <span id="graph-value" class="graph-value">—</span>
+                <span id="graph-delta" class="graph-delta neutral">—</span>
+            </div>
+            <div class="graph-canvas-container">
+                <canvas id="graph-canvas"></canvas>
+            </div>
+            <div class="graph-range">
+                <span id="graph-range-start">—</span>
+                <span id="graph-range-end">—</span>
+            </div>
+            <div id="graph-label" class="graph-label">World Population (millions)</div>
+        </div>
+        <div class="graph-window-control">
+            <div class="window-mode-toggle">
+                <button class="window-mode-btn active" data-mode="flexible" title="Independent window position">Flexible</button>
+                <button class="window-mode-btn" data-mode="sliding" title="Window follows current year">Sliding</button>
+            </div>
+            <select id="window-width-select" class="window-width-select" title="Window width">
+                <option value="100">100 years</option>
+                <option value="200">200 years</option>
+                <option value="500">500 years</option>
+                <option value="1000">1000 years</option>
+                <option value="2000" selected>2000 years</option>
+                <option value="5724">Full timeline</option>
+            </select>
+            <input type="range" id="window-slider" min="-3700" max="24" value="-3400">
+            <span id="window-year-display" class="window-year-display">3400 BCE — 1400 BCE</span>
+        </div>
+    </div>
+
+    <div id="stats-panel" class="stats-panel">
+        <div class="stats-panel-header">
+            <h4>World Stats</h4>
+        </div>
+        <div id="stats-panel-content" class="stats-panel-content"></div>
+    </div>
+
+    <div id="leaderboard" class="leaderboard hidden">
+        <div class="leaderboard-header">
+            <h4>Leaderboard</h4>
+            <button class="filter-btn" id="filter-btn" title="Filter">
+                <svg width="14" height="12" viewBox="0 0 14 12" fill="currentColor">
+                    <rect x="0" y="0" width="14" height="2" rx="1"/>
+                    <rect x="2" y="5" width="10" height="2" rx="1"/>
+                    <rect x="4" y="10" width="6" height="2" rx="1"/>
+                </svg>
+                <span>Filter</span>
+            </button>
+        </div>
+        <div id="leaderboard-filters" class="leaderboard-filters hidden">
+            <button class="filter-option active" data-sort="all">All</button>
+            <button class="filter-option" data-sort="area">Area</button>
+            <button class="filter-option" data-sort="cities">Cities</button>
+            <button class="filter-option" data-sort="age">Age</button>
+        </div>
+        <div id="leaderboard-content" class="leaderboard-content">
+            <div class="leaderboard-empty">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Quick menu - vertical buttons above timeline -->
+    <div id="quick-menu" class="quick-menu">
+        <button class="quick-menu-btn active" id="qm-stats" title="Toggle Stats">
+            <svg class="qm-icon" viewBox="0 0 20 20" fill="currentColor">
+                <rect x="2" y="10" width="4" height="8" rx="1"/>
+                <rect x="8" y="6" width="4" height="12" rx="1"/>
+                <rect x="14" y="2" width="4" height="16" rx="1"/>
+            </svg>
+            <span class="qm-label">Stats</span>
+        </button>
+        <button class="quick-menu-btn" id="qm-leaderboard" title="Toggle Leaderboard">
+            <svg class="qm-icon" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10 2l2.5 5 5.5.8-4 3.9.9 5.3-4.9-2.6-4.9 2.6.9-5.3-4-3.9 5.5-.8z"/>
+            </svg>
+            <span class="qm-label">Ranks</span>
+        </button>
+        <button class="quick-menu-btn" id="qm-graph" title="Toggle Graph">
+            <svg class="qm-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+                <polyline points="2,16 6,10 10,13 14,6 18,8"/>
+                <circle cx="6" cy="10" r="1.5" fill="currentColor"/>
+                <circle cx="10" cy="13" r="1.5" fill="currentColor"/>
+                <circle cx="14" cy="6" r="1.5" fill="currentColor"/>
+            </svg>
+            <span class="qm-label">Graph</span>
+        </button>
+        <button class="quick-menu-btn" id="qm-expand" title="Collapse menu">
+            <svg class="qm-icon" viewBox="0 0 20 20" fill="none">
+                <path d="M8 5l5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+    </div>
+
+    <div class="controls-wrapper" id="controls-wrapper">
+        <div class="controls-tab">
+            <div class="controls-tab-left">
+                <button class="collapse-toggle" id="collapse-toggle" title="Collapse panel">
+                    <span class="toggle-icon">▼</span>
+                </button>
+                <div class="panel-tabs">
+                    <button class="panel-tab active" data-panel="timeline">
+                        <span id="year-display-mini">1 CE</span>
+                        <span class="tab-label">Timeline</span>
+                    </button>
+                    <button class="panel-tab" data-panel="disputes">
+                        <span class="tab-label">Disputes</span>
+                    </button>
+                    <button class="panel-tab" data-panel="view">
+                        <span class="tab-label">View</span>
+                    </button>
+                </div>
+            </div>
+            <div class="controls-tab-right">
+                <button id="toggle-polities" class="toggle-btn active">Territories</button>
+                <button id="toggle-cities" class="toggle-btn active">Cities</button>
+                <button id="settings-btn" class="settings-btn" title="Settings">
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div class="controls-panels">
+            <div class="controls-panel active" id="timeline-panel">
+            <div class="timeline-container">
+                <div id="year-display">1 CE</div>
+                <button class="timeline-nav-btn" id="timeline-nav-left" title="Pan left" disabled>
+                    <span>&#9664;</span>
+                </button>
+                <div class="timeline-wrapper">
+                    <div class="timeline-ruler" id="timeline-ruler"></div>
+                    <input type="range" id="timeline" min="-3700" max="2024" value="1">
+                    <div id="timeline-ticks" class="timeline-ticks"></div>
+                </div>
+                <button class="timeline-nav-btn" id="timeline-nav-right" title="Pan right" disabled>
+                    <span>&#9654;</span>
+                </button>
+            </div>
+            <div class="timeline-controls">
+                <div class="year-input-group">
+                    <input type="number" id="year-input" value="1" min="1" max="3700" title="Enter year">
+                    <select id="era-select" class="era-select" title="Select era">
+                        <option value="bce">BCE</option>
+                        <option value="ce" selected>CE</option>
+                    </select>
+                    <button class="step-btn" id="go-to-year" title="Go to year">Go</button>
+                </div>
+                <div class="step-group">
+                    <button class="step-btn" data-step="-100" title="-100 years">-100</button>
+                    <button class="step-btn" data-step="-50" title="-50 years">-50</button>
+                    <button class="step-btn" data-step="-25" title="-25 years">-25</button>
+                    <button class="step-btn" data-step="-10" title="-10 years">-10</button>
+                    <button class="step-btn" data-step="-1" title="-1 year">-1</button>
+                </div>
+                <div class="playback-group">
+                    <button class="play-btn" id="play-btn" title="Play/Pause">
+                        <span class="play-icon">&#9658;</span>
+                        <span class="pause-icon" style="display:none;">&#10074;&#10074;</span>
+                    </button>
+                    <select id="playback-speed" class="speed-select" title="Playback speed">
+                        <option value="4000">0.25 yr/s</option>
+                        <option value="2000">0.5 yr/s</option>
+                        <option value="1000">1 yr/s</option>
+                        <option value="400">2.5 yr/s</option>
+                        <option value="200">5 yr/s</option>
+                        <option value="100">10 yr/s</option>
+                        <option value="33" selected>30 yr/s</option>
+                        <option value="16">60 yr/s</option>
+                        <option value="10">100 yr/s</option>
+                        <option value="5">200 yr/s</option>
+                    </select>
+                </div>
+                <div class="step-group">
+                    <button class="step-btn" data-step="1" title="+1 year">+1</button>
+                    <button class="step-btn" data-step="10" title="+10 years">+10</button>
+                    <button class="step-btn" data-step="25" title="+25 years">+25</button>
+                    <button class="step-btn" data-step="50" title="+50 years">+50</button>
+                    <button class="step-btn" data-step="100" title="+100 years">+100</button>
+                </div>
+                <div class="timeline-zoom-controls">
+                    <button class="zoom-btn" id="zoom-out" title="Zoom out" disabled>−</button>
+                    <span class="zoom-level" id="zoom-level">Full</span>
+                    <button class="zoom-btn" id="zoom-in" title="Zoom in">+</button>
+                </div>
+            </div>
+            <!-- Hidden elements for compatibility -->
+            <span style="display:none;">Polities: <strong id="polity-count">0</strong></span>
+            <span style="display:none;">Cities: <strong id="city-count">0</strong></span>
+            <span style="display:none;">Pop: <strong id="total-population">0</strong></span>
+            </div>
+            <div class="controls-panel" id="disputes-panel">
+                <div class="disputes-content">
+                    <h3 class="disputes-title">Historical Disputes Heatmap</h3>
+                    <p class="disputes-desc">Visualize territorial contestation and settlement patterns across history.</p>
+                    <div class="disputes-options">
+                        <button class="dispute-card active" data-heatmap="off">
+                            <div class="dispute-card-preview off">
+                                <span class="off-icon">○</span>
+                            </div>
+                            <div class="dispute-card-label">Off</div>
+                        </button>
+                        <button class="dispute-card" data-heatmap="contested">
+                            <div class="dispute-card-preview contested"></div>
+                            <div class="dispute-card-label">Most Contested</div>
+                            <div class="dispute-card-desc">Areas with frequent territorial changes</div>
+                        </button>
+                        <button class="dispute-card" data-heatmap="settled">
+                            <div class="dispute-card-preview settled"></div>
+                            <div class="dispute-card-label">Most Settled</div>
+                            <div class="dispute-card-desc">Areas with long-term stable control</div>
+                        </button>
+                    </div>
+                    <div class="heatmap-status" id="heatmap-status"></div>
+                </div>
+            </div>
+            <div class="controls-panel" id="view-panel">
+                <div class="view-content">
+                    <!-- Base Map Section -->
+                    <div class="view-section">
+                        <div class="view-section-title">Base Map</div>
+                        <div class="basemap-grid">
+                            <button class="basemap-btn" data-basemap="dark" title="Dark">
+                                <div class="preview" style="background: linear-gradient(135deg, #1a1a2e, #2d2d44);"></div>
+                                Dark
+                            </button>
+                            <button class="basemap-btn" data-basemap="light" title="Light">
+                                <div class="preview" style="background: linear-gradient(135deg, #e8e8e8, #f5f5f5);"></div>
+                                Light
+                            </button>
+                            <button class="basemap-btn active" data-basemap="satellite" title="Satellite">
+                                <div class="preview" style="background: linear-gradient(135deg, #1a3d1a, #2d5a3d, #1a4a6e);"></div>
+                                Satellite
+                            </button>
+                            <button class="basemap-btn" data-basemap="physical" title="Physical">
+                                <div class="preview" style="background: linear-gradient(135deg, #c9d9a0, #a8c090, #8eb078);"></div>
+                                Physical
+                            </button>
+                            <button class="basemap-btn" data-basemap="terrain" title="Terrain">
+                                <div class="preview" style="background: linear-gradient(135deg, #d4e4bc, #c9d4a4, #e8dcc8);"></div>
+                                Terrain
+                            </button>
+                            <button class="basemap-btn" data-basemap="toner" title="Toner">
+                                <div class="preview" style="background: linear-gradient(135deg, #fff, #ccc, #888);"></div>
+                                Toner
+                            </button>
+                            <button class="basemap-btn" data-basemap="topo" title="Topo">
+                                <div class="preview" style="background: linear-gradient(135deg, #f2efe9, #d4e4bc, #c9b896);"></div>
+                                Topo
+                            </button>
+                            <button class="basemap-btn" data-basemap="black" title="Black">
+                                <div class="preview" style="background: #000;"></div>
+                                Black
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Layers Section -->
+                    <div class="view-section">
+                        <div class="view-section-title">Layers</div>
+                        <div class="view-row">
+                            <button id="toggle-elevation" class="toggle-btn active">Elevation</button>
+                            <button id="toggle-hillshade" class="toggle-btn">Hillshade</button>
+                            <button id="toggle-rivers" class="toggle-btn active">Rivers</button>
+                            <button id="toggle-coastlines" class="toggle-btn active">Coastlines</button>
+                            <button id="toggle-labels" class="toggle-btn">Labels</button>
+                            <button id="toggle-civ-names" class="toggle-btn">Civ Names</button>
+                        </div>
+                    </div>
+
+                    <!-- Civ Names Section -->
+                    <div class="view-section" id="civ-names-controls">
+                        <div class="view-section-title">Civ Names</div>
+                        <div class="view-row">
+                            <div class="view-control-group">
+                                <label>Position</label>
+                                <select id="label-position">
+                                    <option value="centroid">Centroid</option>
+                                    <option value="visual" selected>Visual Center</option>
+                                </select>
+                            </div>
+                            <div class="view-control-group">
+                                <label>Density</label>
+                                <select id="label-density">
+                                    <option value="crowded">Crowded</option>
+                                    <option value="balanced">Balanced</option>
+                                    <option value="major" selected>Major</option>
+                                </select>
+                            </div>
+                            <div class="view-control-group">
+                                <label>Subtlety</label>
+                                <select id="label-subtlety">
+                                    <option value="bold">Bold</option>
+                                    <option value="normal" selected>Normal</option>
+                                    <option value="subtle">Subtle</option>
+                                    <option value="faint">Faint</option>
+                                </select>
+                            </div>
+                            <div class="view-control-group">
+                                <label>Case</label>
+                                <select id="label-case">
+                                    <option value="uppercase" selected>ALL CAPS</option>
+                                    <option value="capitalize">Title Case</option>
+                                    <option value="none">Normal</option>
+                                </select>
+                            </div>
+                            <div class="view-control-group">
+                                <label>Contrast</label>
+                                <select id="label-contrast">
+                                    <option value="high">High</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="low">Low</option>
+                                    <option value="none">None</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Elevation Section -->
+                    <div class="view-section" id="elevation-controls">
+                        <div class="view-section-title">Elevation</div>
+                        <div class="view-row">
+                            <div class="view-control-group">
+                                <label>Opacity</label>
+                                <input type="range" id="terrain-opacity-slider" min="0" max="100" value="50">
+                                <span id="terrain-opacity-value" class="value-display">50%</span>
+                            </div>
+                            <div class="view-control-group">
+                                <label>Intensity</label>
+                                <input type="range" id="terrain-intensity-slider" min="0" max="200" value="200">
+                                <span id="terrain-intensity-value" class="value-display">200%</span>
+                            </div>
+                            <div class="view-control-group">
+                                <label>Max</label>
+                                <select id="terrain-max-height">
+                                    <option value="500">500m</option>
+                                    <option value="1000">1,000m</option>
+                                    <option value="1500">1,500m</option>
+                                    <option value="2000">2,000m</option>
+                                    <option value="2500">2,500m</option>
+                                    <option value="3000">3,000m</option>
+                                    <option value="3500" selected>3,500m</option>
+                                    <option value="4000">4,000m</option>
+                                    <option value="5000">5,000m</option>
+                                    <option value="8848">8,848m</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Color Ramp Section -->
+                    <div class="view-section" id="colorramp-controls">
+                        <div class="view-section-title">Color Ramp</div>
+                        <div class="color-presets">
+                            <div class="color-preset active" data-preset="terrain"
+                                 style="background: linear-gradient(90deg, #1a472a, #2d5a27, #8b7355, #a0522d, #fff);"
+                                 title="Terrain"></div>
+                            <div class="color-preset" data-preset="heat"
+                                 style="background: linear-gradient(90deg, #000080, #4169e1, #ffd700, #ff4500, #fff);"
+                                 title="Heat"></div>
+                            <div class="color-preset" data-preset="earth"
+                                 style="background: linear-gradient(90deg, #228b22, #9acd32, #daa520, #8b4513, #fff);"
+                                 title="Earth"></div>
+                            <div class="color-preset" data-preset="mono"
+                                 style="background: linear-gradient(90deg, #1a1a2e, #4a4a6a, #8a8aaa, #cacaea, #fff);"
+                                 title="Mono"></div>
+                            <div class="color-preset" data-preset="volcanic"
+                                 style="background: linear-gradient(90deg, #0d0d0d, #4a1c1c, #8b0000, #ff4500, #ffd700);"
+                                 title="Volcanic"></div>
+                        </div>
+                    </div>
+
+                    <!-- Rivers Section -->
+                    <div class="view-section" id="rivers-controls">
+                        <div class="view-section-title">Rivers</div>
+                        <div class="view-row">
+                            <div class="view-control-group">
+                                <label>Detail</label>
+                                <select id="river-detail">
+                                    <option value="2">Large</option>
+                                    <option value="4">Medium</option>
+                                    <option value="6" selected>Small</option>
+                                    <option value="8">Streams</option>
+                                    <option value="10">All</option>
+                                </select>
+                                <span id="river-count-display" class="value-display">—</span>
+                            </div>
+                            <div class="view-control-group">
+                                <label>Style</label>
+                                <select id="river-style">
+                                    <option value="intense">Intense</option>
+                                    <option value="strong" selected>Strong</option>
+                                    <option value="bold">Bold</option>
+                                    <option value="normal">Normal</option>
+                                    <option value="subtle">Subtle</option>
+                                    <option value="faint">Faint</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="view-row">
+                            <div class="view-control-group">
+                                <label>Hover</label>
+                                <select id="river-hover">
+                                    <option value="on" selected>On</option>
+                                    <option value="off">Off</option>
+                                </select>
+                            </div>
+                            <div class="view-control-group">
+                                <label>Sensitivity</label>
+                                <select id="river-sensitivity">
+                                    <option value="standard" selected>Standard</option>
+                                    <option value="insensitive">Insensitive</option>
+                                    <option value="off">Off</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cities Section -->
+                    <div class="view-section" id="cities-controls">
+                        <div class="view-section-title">Cities</div>
+                        <div class="view-row">
+                            <div class="view-control-group">
+                                <label>Hover</label>
+                                <select id="city-hover">
+                                    <option value="on" selected>On</option>
+                                    <option value="off">Off</option>
+                                </select>
+                            </div>
+                            <div class="view-control-group">
+                                <label>Sensitivity</label>
+                                <select id="city-sensitivity">
+                                    <option value="standard" selected>Standard</option>
+                                    <option value="insensitive">Insensitive</option>
+                                    <option value="off">Off</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Coastlines Section -->
+                    <div class="view-section" id="coastlines-controls">
+                        <div class="view-section-title">Coastlines</div>
+                        <div class="view-row">
+                            <div class="view-control-group">
+                                <label>Detail</label>
+                                <select id="coastline-detail">
+                                    <option value="detailed" selected>High (3x)</option>
+                                    <option value="standard">Standard</option>
+                                </select>
+                            </div>
+                            <div class="view-control-group">
+                                <label>Style</label>
+                                <select id="coastline-style">
+                                    <option value="intense">Intense</option>
+                                    <option value="strong" selected>Strong</option>
+                                    <option value="bold">Bold</option>
+                                    <option value="normal">Normal</option>
+                                    <option value="subtle">Subtle</option>
+                                    <option value="faint">Faint</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

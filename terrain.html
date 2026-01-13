@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terrain Layer Test - Elevation Heatmap</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+        }
+
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+
+        .controls-wrapper {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+
+        .controls-wrapper.collapsed {
+            transform: translateY(calc(100% - 36px));
+        }
+
+        .controls-tab {
+            background: #16213e;
+            border-top: 1px solid #0f3460;
+            padding: 8px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+        }
+
+        .controls-tab:hover {
+            background: #1a2a4e;
+        }
+
+        .controls-tab h2 {
+            font-size: 14px;
+            color: #e94560;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .controls-tab .toggle-icon {
+            font-size: 10px;
+            color: #4da6ff;
+            transition: transform 0.3s ease;
+        }
+
+        .controls-wrapper.collapsed .toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        .controls {
+            background: #16213e;
+            padding: 15px 20px;
+            display: flex;
+            gap: 30px;
+            overflow-x: auto;
+            border-top: 1px solid #0f3460;
+        }
+
+        .control-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-width: fit-content;
+        }
+
+        .control-section-title {
+            font-size: 11px;
+            color: #4da6ff;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: nowrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .control-group label {
+            font-size: 11px;
+            color: #888;
+            white-space: nowrap;
+        }
+
+        .basemap-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            max-width: 500px;
+        }
+
+        .basemap-btn {
+            background: #0f3460;
+            border: 2px solid transparent;
+            color: #aaa;
+            padding: 6px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .basemap-btn:hover {
+            border-color: #4da6ff;
+            color: #fff;
+        }
+
+        .basemap-btn.active {
+            border-color: #e94560;
+            color: #fff;
+            background: #1a3a5c;
+        }
+
+        .basemap-btn .preview {
+            width: 100%;
+            height: 30px;
+            border-radius: 2px;
+            margin-bottom: 4px;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .toggle-btn {
+            background: #0f3460;
+            border: 1px solid #4da6ff;
+            color: #4da6ff;
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .toggle-btn.active {
+            background: #4da6ff;
+            color: #16213e;
+        }
+
+        .toggle-btn:hover {
+            opacity: 0.85;
+        }
+
+        input[type="range"] {
+            width: 120px;
+            height: 6px;
+            -webkit-appearance: none;
+            background: #0f3460;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #4da6ff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        select {
+            background: #0f3460;
+            border: 1px solid #1a4a7a;
+            color: #4da6ff;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #4da6ff;
+        }
+
+        .value-display {
+            font-size: 12px;
+            color: #4da6ff;
+            min-width: 40px;
+        }
+
+        .color-presets {
+            display: flex;
+            gap: 6px;
+        }
+
+        .color-preset {
+            width: 60px;
+            height: 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color 0.2s;
+        }
+
+        .color-preset:hover {
+            border-color: #fff;
+        }
+
+        .color-preset.active {
+            border-color: #e94560;
+        }
+
+        .elevation-info {
+            position: fixed;
+            bottom: 50px;
+            left: 10px;
+            background: rgba(22, 33, 62, 0.95);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            z-index: 999;
+            transition: bottom 0.3s ease;
+        }
+
+        .controls-wrapper:not(.collapsed) ~ .elevation-info,
+        body:has(.controls-wrapper:not(.collapsed)) .elevation-info {
+            bottom: 160px;
+        }
+
+        .elevation-info strong {
+            color: #4da6ff;
+        }
+
+        .legend {
+            position: fixed;
+            bottom: 50px;
+            right: 10px;
+            background: rgba(22, 33, 62, 0.95);
+            padding: 8px 10px;
+            border-radius: 6px;
+            z-index: 999;
+            transition: bottom 0.3s ease;
+        }
+
+        .controls-wrapper:not(.collapsed) ~ .legend,
+        body:has(.controls-wrapper:not(.collapsed)) .legend {
+            bottom: 160px;
+        }
+
+        .legend-title {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 6px;
+        }
+
+        .legend-bar {
+            width: 150px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .rivers-layer {
+            mix-blend-mode: screen;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <div class="elevation-info">
+        Elevation: <strong id="elevation-display">—</strong>
+    </div>
+
+    <div class="legend">
+        <div class="legend-title">Elevation</div>
+        <div id="legend-bar" class="legend-bar"></div>
+        <div class="legend-labels">
+            <span>0m</span>
+            <span>3000m+</span>
+        </div>
+    </div>
+
+    <div class="controls-wrapper" id="controls-wrapper">
+        <div class="controls-tab" id="controls-tab">
+            <h2>
+                <span class="toggle-icon">▼</span>
+                Terrain Controls
+            </h2>
+        </div>
+        <div class="controls">
+            <!-- Base Map Section -->
+            <div class="control-section">
+                <div class="control-section-title">Base Map</div>
+                <div class="basemap-grid">
+                    <button class="basemap-btn" data-basemap="dark" title="Dark">
+                        <div class="preview" style="background: linear-gradient(135deg, #1a1a2e, #2d2d44);"></div>
+                        Dark
+                    </button>
+                    <button class="basemap-btn" data-basemap="light" title="Light">
+                        <div class="preview" style="background: linear-gradient(135deg, #e8e8e8, #f5f5f5);"></div>
+                        Light
+                    </button>
+                    <button class="basemap-btn active" data-basemap="satellite" title="Satellite">
+                        <div class="preview" style="background: linear-gradient(135deg, #1a3d1a, #2d5a3d, #1a4a6e);"></div>
+                        Satellite
+                    </button>
+                    <button class="basemap-btn" data-basemap="physical" title="Physical">
+                        <div class="preview" style="background: linear-gradient(135deg, #c9d9a0, #a8c090, #8eb078);"></div>
+                        Physical
+                    </button>
+                    <button class="basemap-btn" data-basemap="terrain" title="Terrain">
+                        <div class="preview" style="background: linear-gradient(135deg, #d4e4bc, #c9d4a4, #e8dcc8);"></div>
+                        Terrain
+                    </button>
+                    <button class="basemap-btn" data-basemap="toner" title="Toner">
+                        <div class="preview" style="background: linear-gradient(135deg, #fff, #ccc, #888);"></div>
+                        Toner
+                    </button>
+                    <button class="basemap-btn" data-basemap="topo" title="Topo">
+                        <div class="preview" style="background: linear-gradient(135deg, #f2efe9, #d4e4bc, #c9b896);"></div>
+                        Topo
+                    </button>
+                    <button class="basemap-btn" data-basemap="black" title="Black">
+                        <div class="preview" style="background: #000;"></div>
+                        Black
+                    </button>
+                </div>
+            </div>
+
+            <!-- Layers Section -->
+            <div class="control-section">
+                <div class="control-section-title">Layers</div>
+                <div class="control-row">
+                    <button id="toggle-terrain" class="toggle-btn active">Elevation</button>
+                    <button id="toggle-hillshade" class="toggle-btn">Hillshade</button>
+                    <button id="toggle-rivers" class="toggle-btn active">Rivers</button>
+                </div>
+                <div class="control-row">
+                    <button id="toggle-coastlines" class="toggle-btn active">Coastlines</button>
+                    <button id="toggle-contours" class="toggle-btn">Contours</button>
+                    <button id="toggle-labels" class="toggle-btn">Labels</button>
+                </div>
+            </div>
+
+            <!-- Elevation Section -->
+            <div class="control-section">
+                <div class="control-section-title">Elevation</div>
+                <div class="control-group">
+                    <label>Opacity</label>
+                    <input type="range" id="opacity-slider" min="0" max="100" value="20">
+                    <span id="opacity-value" class="value-display">20%</span>
+                </div>
+                <div class="control-group">
+                    <label>Intensity</label>
+                    <input type="range" id="intensity-slider" min="0" max="200" value="200">
+                    <span id="intensity-value" class="value-display">200%</span>
+                </div>
+                <div class="control-group">
+                    <label>Max</label>
+                    <select id="max-height">
+                        <option value="500">500m</option>
+                        <option value="1000">1,000m</option>
+                        <option value="1500">1,500m</option>
+                        <option value="2000">2,000m</option>
+                        <option value="2500">2,500m</option>
+                        <option value="3000" selected>3,000m</option>
+                        <option value="3500">3,500m</option>
+                        <option value="4000">4,000m</option>
+                        <option value="4500">4,500m</option>
+                        <option value="5000">5,000m</option>
+                        <option value="6000">6,000m</option>
+                        <option value="7000">7,000m</option>
+                        <option value="8000">8,000m</option>
+                        <option value="8848">8,848m</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Color Ramp Section -->
+            <div class="control-section">
+                <div class="control-section-title">Color Ramp</div>
+                <div class="color-presets">
+                    <div class="color-preset active" data-preset="terrain"
+                         style="background: linear-gradient(90deg, #1a472a, #2d5a27, #8b7355, #a0522d, #fff);"
+                         title="Terrain"></div>
+                    <div class="color-preset" data-preset="heat"
+                         style="background: linear-gradient(90deg, #000080, #4169e1, #ffd700, #ff4500, #fff);"
+                         title="Heat"></div>
+                    <div class="color-preset" data-preset="earth"
+                         style="background: linear-gradient(90deg, #228b22, #9acd32, #daa520, #8b4513, #fff);"
+                         title="Earth"></div>
+                    <div class="color-preset" data-preset="mono"
+                         style="background: linear-gradient(90deg, #1a1a2e, #4a4a6a, #8a8aaa, #cacaea, #fff);"
+                         title="Mono"></div>
+                    <div class="color-preset" data-preset="volcanic"
+                         style="background: linear-gradient(90deg, #0d0d0d, #4a1c1c, #8b0000, #ff4500, #ffd700);"
+                         title="Volcanic"></div>
+                </div>
+            </div>
+
+            <!-- Rivers Section -->
+            <div class="control-section">
+                <div class="control-section-title">Rivers</div>
+                <div class="control-group">
+                    <label>Detail</label>
+                    <select id="river-detail">
+                        <option value="2">Large</option>
+                        <option value="4" selected>Medium</option>
+                        <option value="6">Small</option>
+                        <option value="8">Streams</option>
+                        <option value="10">All</option>
+                    </select>
+                    <span id="river-count-display" class="value-display">—</span>
+                </div>
+                <div class="control-group">
+                    <label>Style</label>
+                    <select id="river-style">
+                        <option value="intense" selected>Intense</option>
+                        <option value="strong">Strong</option>
+                        <option value="bold">Bold</option>
+                        <option value="normal">Normal</option>
+                        <option value="subtle">Subtle</option>
+                        <option value="faint">Faint</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Coastlines Section -->
+            <div class="control-section">
+                <div class="control-section-title">Coastlines</div>
+                <div class="control-group">
+                    <label>Style</label>
+                    <select id="coastline-style">
+                        <option value="intense" selected>Intense</option>
+                        <option value="strong">Strong</option>
+                        <option value="bold">Bold</option>
+                        <option value="normal">Normal</option>
+                        <option value="subtle">Subtle</option>
+                        <option value="faint">Faint</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize map
+        const map = L.map('map', {
+            center: [35, 80],
+            zoom: 4,
+            minZoom: 2,
+            maxZoom: 12
+        });
+
+        // Base map definitions (all without political labels/borders)
+        const baseMaps = {
+            dark: {
+                url: 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+                options: { subdomains: 'abcd', maxZoom: 20 },
+                attribution: '&copy; OSM &copy; CARTO'
+            },
+            light: {
+                url: 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
+                options: { subdomains: 'abcd', maxZoom: 20 },
+                attribution: '&copy; OSM &copy; CARTO'
+            },
+            satellite: {
+                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                options: { maxZoom: 18 },
+                attribution: '&copy; Esri, Maxar, Earthstar'
+            },
+            physical: {
+                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}',
+                options: { maxZoom: 8 },
+                attribution: '&copy; Esri, US National Park Service'
+            },
+            terrain: {
+                url: 'https://tiles.stadiamaps.com/tiles/stamen_terrain_background/{z}/{x}/{y}{r}.png',
+                options: { maxZoom: 18 },
+                attribution: '&copy; Stadia Maps &copy; Stamen Design'
+            },
+            toner: {
+                url: 'https://tiles.stadiamaps.com/tiles/stamen_toner_background/{z}/{x}/{y}{r}.png',
+                options: { maxZoom: 18 },
+                attribution: '&copy; Stadia Maps &copy; Stamen Design'
+            },
+            topo: {
+                url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+                options: { subdomains: 'abc', maxZoom: 17 },
+                attribution: '&copy; OpenTopoMap'
+            },
+            black: {
+                url: '', // No tiles - pure black background
+                options: { maxZoom: 20 },
+                attribution: ''
+            }
+        };
+
+        let currentBasemap = 'satellite';
+        let baseLayer = L.tileLayer(baseMaps.satellite.url, {
+            ...baseMaps.satellite.options,
+            attribution: baseMaps.satellite.attribution + ' | Elevation: AWS Terrain Tiles'
+        }).addTo(map);
+
+        // Color ramps (normalized 0-1 -> RGB)
+        const colorRamps = {
+            terrain: [
+                [0.0, [26, 71, 42]],      // Dark green (lowlands)
+                [0.15, [45, 90, 39]],     // Forest green
+                [0.3, [139, 115, 85]],    // Tan (hills)
+                [0.5, [160, 82, 45]],     // Sienna (mountains)
+                [0.7, [180, 160, 140]],   // Light brown
+                [0.85, [220, 220, 220]],  // Light grey (high)
+                [1.0, [255, 255, 255]]    // White (peaks)
+            ],
+            heat: [
+                [0.0, [0, 0, 80]],        // Dark blue
+                [0.25, [65, 105, 225]],   // Royal blue
+                [0.5, [255, 215, 0]],     // Gold
+                [0.75, [255, 69, 0]],     // Red-orange
+                [1.0, [255, 255, 255]]    // White
+            ],
+            earth: [
+                [0.0, [34, 139, 34]],     // Forest green
+                [0.3, [154, 205, 50]],    // Yellow-green
+                [0.5, [218, 165, 32]],    // Goldenrod
+                [0.7, [139, 69, 19]],     // Saddle brown
+                [1.0, [255, 255, 255]]    // White
+            ],
+            mono: [
+                [0.0, [26, 26, 46]],      // Dark
+                [0.33, [74, 74, 106]],
+                [0.66, [138, 138, 170]],
+                [1.0, [255, 255, 255]]
+            ],
+            volcanic: [
+                [0.0, [13, 13, 13]],      // Near black
+                [0.25, [74, 28, 28]],     // Dark red
+                [0.5, [139, 0, 0]],       // Dark red
+                [0.75, [255, 69, 0]],     // Red-orange
+                [1.0, [255, 215, 0]]      // Gold
+            ]
+        };
+
+        let currentRamp = 'terrain';
+        let maxHeight = 3000;
+        let terrainOpacity = 0.2;
+        let terrainIntensity = 2.0;
+
+        // Interpolate color from ramp
+        function getColorFromRamp(value, ramp) {
+            const stops = colorRamps[ramp];
+            value = Math.max(0, Math.min(1, value));
+
+            for (let i = 0; i < stops.length - 1; i++) {
+                if (value >= stops[i][0] && value <= stops[i + 1][0]) {
+                    const t = (value - stops[i][0]) / (stops[i + 1][0] - stops[i][0]);
+                    const c1 = stops[i][1];
+                    const c2 = stops[i + 1][1];
+                    return [
+                        Math.round(c1[0] + t * (c2[0] - c1[0])),
+                        Math.round(c1[1] + t * (c2[1] - c1[1])),
+                        Math.round(c1[2] + t * (c2[2] - c1[2]))
+                    ];
+                }
+            }
+            return stops[stops.length - 1][1];
+        }
+
+        // Custom tile layer that processes elevation data
+        const ElevationLayer = L.GridLayer.extend({
+            createTile: function(coords, done) {
+                const tile = document.createElement('canvas');
+                const size = this.getTileSize();
+                tile.width = size.x;
+                tile.height = size.y;
+
+                const ctx = tile.getContext('2d');
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+
+                // AWS Terrain Tiles (Terrarium format)
+                img.src = `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${coords.z}/${coords.x}/${coords.y}.png`;
+
+                img.onload = () => {
+                    // Draw original to read pixels
+                    ctx.drawImage(img, 0, 0, size.x, size.y);
+                    const imageData = ctx.getImageData(0, 0, size.x, size.y);
+                    const data = imageData.data;
+
+                    // Process each pixel
+                    for (let i = 0; i < data.length; i += 4) {
+                        const r = data[i];
+                        const g = data[i + 1];
+                        const b = data[i + 2];
+
+                        // Terrarium encoding: elevation = (R * 256 + G + B / 256) - 32768
+                        let elevation = (r * 256 + g + b / 256) - 32768;
+
+                        // Skip water (negative elevation) or make it transparent
+                        if (elevation < 0) {
+                            data[i + 3] = 0; // Transparent
+                            continue;
+                        }
+
+                        // Normalize to 0-1 based on max height
+                        let normalized = Math.min(1, (elevation / maxHeight) * terrainIntensity);
+
+                        // Get color from ramp
+                        const color = getColorFromRamp(normalized, currentRamp);
+
+                        data[i] = color[0];
+                        data[i + 1] = color[1];
+                        data[i + 2] = color[2];
+                        data[i + 3] = Math.round(terrainOpacity * 255);
+                    }
+
+                    ctx.putImageData(imageData, 0, 0);
+                    done(null, tile);
+                };
+
+                img.onerror = () => {
+                    done(null, tile);
+                };
+
+                return tile;
+            }
+        });
+
+        // Hillshade layer (normal map based)
+        const HillshadeLayer = L.GridLayer.extend({
+            createTile: function(coords, done) {
+                const tile = document.createElement('canvas');
+                const size = this.getTileSize();
+                tile.width = size.x;
+                tile.height = size.y;
+
+                const ctx = tile.getContext('2d');
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+
+                // AWS Normal tiles for hillshade
+                img.src = `https://s3.amazonaws.com/elevation-tiles-prod/normal/${coords.z}/${coords.x}/${coords.y}.png`;
+
+                img.onload = () => {
+                    ctx.drawImage(img, 0, 0, size.x, size.y);
+                    const imageData = ctx.getImageData(0, 0, size.x, size.y);
+                    const data = imageData.data;
+
+                    // Sun direction (from northwest, elevated)
+                    const sunX = -0.6;
+                    const sunY = -0.6;
+                    const sunZ = 0.5;
+
+                    for (let i = 0; i < data.length; i += 4) {
+                        // Normal map: RGB encodes normal vector
+                        const nx = (data[i] / 255) * 2 - 1;
+                        const ny = (data[i + 1] / 255) * 2 - 1;
+                        const nz = (data[i + 2] / 255) * 2 - 1;
+
+                        // Dot product with sun direction
+                        let shade = nx * sunX + ny * sunY + nz * sunZ;
+                        shade = Math.max(0, Math.min(1, (shade + 1) / 2));
+
+                        // Apply as grayscale
+                        const v = Math.round(shade * 255);
+                        data[i] = v;
+                        data[i + 1] = v;
+                        data[i + 2] = v;
+                        data[i + 3] = Math.round(0.4 * 255); // Semi-transparent
+                    }
+
+                    ctx.putImageData(imageData, 0, 0);
+                    done(null, tile);
+                };
+
+                img.onerror = () => {
+                    done(null, tile);
+                };
+
+                return tile;
+            }
+        });
+
+        // Create layers
+        let elevationLayer = new ElevationLayer({ maxZoom: 15 });
+        let hillshadeLayer = new HillshadeLayer({ maxZoom: 15 });
+        let riversLayer = null;
+        let coastlinesLayer = null;
+        let contoursLayer = null;
+        let allRiversData = null;
+        let coastlinesData = null;
+        let riverDetailLevel = 4; // Default: medium rivers
+        let riverStyle = 'intense'; // intense, strong, bold, normal, subtle, faint
+        let coastlineStyle = 'intense';
+
+        // Layer visibility
+        let showElevation = true;
+        let showHillshade = false;
+        let showRivers = true;
+        let showCoastlines = true;
+        let showContours = false;
+
+        // Determine if current basemap is dark or light
+        function isDarkBasemap() {
+            return ['dark', 'black', 'satellite'].includes(currentBasemap);
+        }
+
+        // Coastline styling - adapts to basemap and style setting
+        function getCoastlineStyle() {
+            const zoom = map.getZoom();
+            const zoomScale = Math.max(0.4, Math.min(1.2, (zoom - 2) / 8));
+            const dark = isDarkBasemap();
+
+            // Style presets for coastlines
+            const stylePresets = {
+                intense: { opacity: 1.0, weightMult: 2.5, lightColor: 'rgb(40, 40, 40)', darkColor: 'rgb(220, 220, 220)' },
+                strong:  { opacity: 0.9, weightMult: 1.8, lightColor: 'rgb(50, 50, 50)', darkColor: 'rgb(200, 200, 200)' },
+                bold:    { opacity: 0.75, weightMult: 1.4, lightColor: 'rgb(60, 60, 60)', darkColor: 'rgb(180, 180, 180)' },
+                normal:  { opacity: 0.55, weightMult: 1.0, lightColor: 'rgb(80, 80, 80)', darkColor: 'rgb(160, 160, 160)' },
+                subtle:  { opacity: 0.35, weightMult: 0.8, lightColor: 'rgb(100, 100, 100)', darkColor: 'rgb(140, 140, 140)' },
+                faint:   { opacity: 0.2, weightMult: 0.6, lightColor: 'rgb(120, 120, 120)', darkColor: 'rgb(120, 120, 120)' }
+            };
+
+            const preset = stylePresets[coastlineStyle] || stylePresets.normal;
+            const color = dark ? preset.darkColor : preset.lightColor;
+
+            return {
+                color: color,
+                weight: 0.8 * zoomScale * preset.weightMult,
+                opacity: preset.opacity
+            };
+        }
+
+        // Update coastlines layer
+        function updateCoastlinesLayer() {
+            if (coastlinesLayer) {
+                map.removeLayer(coastlinesLayer);
+                coastlinesLayer = null;
+            }
+
+            if (!showCoastlines || !coastlinesData) return;
+
+            coastlinesLayer = L.geoJSON(coastlinesData, {
+                style: getCoastlineStyle,
+                interactive: false
+            });
+
+            coastlinesLayer.addTo(map);
+        }
+
+        // Load coastlines
+        fetch('data/terrain/coastlines.geojson')
+            .then(r => r.json())
+            .then(data => {
+                coastlinesData = data;
+                updateCoastlinesLayer(); // Always update since default is now ON
+            });
+
+        // Add initial layers (hillshade off by default)
+        elevationLayer.addTo(map);
+
+        // River styling - configurable subtlety, zoom-dependent
+        function getRiverStyle(feature) {
+            const rank = feature.properties.scalerank || 5;
+            const zoom = map.getZoom();
+
+            // Style presets: [opacity, weightMultiplier, colorSet]
+            const stylePresets = {
+                intense: {
+                    opacity: 1.0,
+                    weightMult: 2.0,
+                    colors: {
+                        0: '#0a2a4a', 1: '#0a2a4a',
+                        2: '#0a3a5a', 3: '#0a3a5a',
+                        4: '#1a4a6a', 5: '#1a4a6a',
+                        6: '#2a5a7a', 7: '#2a5a7a',
+                        8: '#3a6a8a', 9: '#3a6a8a',
+                        10: '#4a7a9a'
+                    }
+                },
+                strong: {
+                    opacity: 0.95,
+                    weightMult: 1.6,
+                    colors: {
+                        0: '#0a3a5a', 1: '#0a3a5a',
+                        2: '#1a4a6a', 3: '#1a4a6a',
+                        4: '#2a5a7a', 5: '#2a5a7a',
+                        6: '#3a6a8a', 7: '#3a6a8a',
+                        8: '#4a7a9a', 9: '#4a7a9a',
+                        10: '#5a8aaa'
+                    }
+                },
+                bold: {
+                    opacity: 0.9,
+                    weightMult: 1.3,
+                    colors: {
+                        0: '#1a4a6a', 1: '#1a4a6a',
+                        2: '#2a5a7a', 3: '#2a5a7a',
+                        4: '#3a6a8a', 5: '#3a6a8a',
+                        6: '#4a7a9a', 7: '#4a7a9a',
+                        8: '#5a8aaa', 9: '#5a8aaa',
+                        10: '#6a9aba'
+                    }
+                },
+                normal: {
+                    opacity: 0.75,
+                    weightMult: 1.0,
+                    colors: {
+                        0: '#2c5a7c', 1: '#2c5a7c',
+                        2: '#3a6d8c', 3: '#3a6d8c',
+                        4: '#4a7d9c', 5: '#4a7d9c',
+                        6: '#5a8dac', 7: '#5a8dac',
+                        8: '#6a9dbc', 9: '#6a9dbc',
+                        10: '#7aadcc'
+                    }
+                },
+                subtle: {
+                    opacity: 0.5,
+                    weightMult: 0.8,
+                    colors: {
+                        0: '#4a7090', 1: '#4a7090',
+                        2: '#5a80a0', 3: '#5a80a0',
+                        4: '#6a90b0', 5: '#6a90b0',
+                        6: '#7aa0c0', 7: '#7aa0c0',
+                        8: '#8ab0d0', 9: '#8ab0d0',
+                        10: '#9ac0e0'
+                    }
+                },
+                faint: {
+                    opacity: 0.3,
+                    weightMult: 0.6,
+                    colors: {
+                        0: '#6a8aa0', 1: '#6a8aa0',
+                        2: '#7a9ab0', 3: '#7a9ab0',
+                        4: '#8aaac0', 5: '#8aaac0',
+                        6: '#9abacc', 7: '#9abacc',
+                        8: '#aacadc', 9: '#aacadc',
+                        10: '#badaec'
+                    }
+                }
+            };
+
+            const preset = stylePresets[riverStyle] || stylePresets.normal;
+
+            // Base weight scales with importance, then adjusted by zoom
+            const baseWeight = Math.max(0.3, 1.8 - rank * 0.15);
+            // Scale factor: thinner at low zoom, thicker at high zoom
+            const zoomScale = Math.max(0.3, Math.min(1.5, (zoom - 2) / 6));
+
+            return {
+                color: preset.colors[rank] || preset.colors[5],
+                weight: baseWeight * zoomScale * preset.weightMult,
+                opacity: preset.opacity
+            };
+        }
+
+        // Filter and display rivers based on detail level
+        function updateRiversLayer() {
+            if (riversLayer) {
+                map.removeLayer(riversLayer);
+                riversLayer = null;
+            }
+
+            if (!showRivers || !allRiversData) return;
+
+            // Filter rivers by scalerank (lower = more important)
+            const filteredFeatures = allRiversData.features.filter(f =>
+                (f.properties.scalerank || 0) <= riverDetailLevel
+            );
+
+            document.getElementById('river-count-display').textContent =
+                filteredFeatures.length + ' rivers';
+
+            riversLayer = L.geoJSON({
+                type: 'FeatureCollection',
+                features: filteredFeatures
+            }, {
+                style: getRiverStyle,
+                interactive: false
+            });
+
+            riversLayer.addTo(map);
+        }
+
+        // Load detailed rivers
+        fetch('data/terrain/rivers_detailed.geojson')
+            .then(r => r.json())
+            .then(data => {
+                allRiversData = data;
+                updateRiversLayer();
+            })
+            .catch(err => {
+                console.warn('Could not load detailed rivers, falling back to basic:', err);
+                // Fallback to basic rivers
+                fetch('data/terrain/rivers.geojson')
+                    .then(r => r.json())
+                    .then(data => {
+                        allRiversData = data;
+                        updateRiversLayer();
+                    });
+            });
+
+        // Generate contour lines (simplified - just shows elevation bands)
+        function createContoursLayer() {
+            // This is a placeholder - real contours would need server-side processing
+            // For now we'll add labeled contour info on hover
+            return L.layerGroup();
+        }
+
+        // Update legend gradient
+        function updateLegend() {
+            const stops = colorRamps[currentRamp];
+            const gradientStops = stops.map(s => {
+                const pct = s[0] * 100;
+                const rgb = s[1];
+                return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]}) ${pct}%`;
+            }).join(', ');
+
+            document.getElementById('legend-bar').style.background =
+                `linear-gradient(90deg, ${gradientStops})`;
+        }
+
+        updateLegend();
+
+        // Refresh elevation layer
+        function refreshElevation() {
+            if (showElevation) {
+                map.removeLayer(elevationLayer);
+                elevationLayer = new ElevationLayer({ maxZoom: 15 });
+                elevationLayer.addTo(map);
+
+                // Re-add rivers on top if visible
+                if (showRivers && riversLayer) {
+                    map.removeLayer(riversLayer);
+                    riversLayer.addTo(map);
+                }
+            }
+        }
+
+        // Toggle handlers
+        document.getElementById('toggle-terrain').addEventListener('click', function() {
+            showElevation = !showElevation;
+            this.classList.toggle('active', showElevation);
+            if (showElevation) {
+                elevationLayer.addTo(map);
+            } else {
+                map.removeLayer(elevationLayer);
+            }
+        });
+
+        document.getElementById('toggle-hillshade').addEventListener('click', function() {
+            showHillshade = !showHillshade;
+            this.classList.toggle('active', showHillshade);
+            if (showHillshade) {
+                hillshadeLayer.addTo(map);
+                // Ensure proper layer order
+                if (showElevation) {
+                    map.removeLayer(elevationLayer);
+                    elevationLayer.addTo(map);
+                }
+            } else {
+                map.removeLayer(hillshadeLayer);
+            }
+        });
+
+        document.getElementById('toggle-rivers').addEventListener('click', function() {
+            showRivers = !showRivers;
+            this.classList.toggle('active', showRivers);
+            updateRiversLayer();
+        });
+
+        // River detail level selector
+        document.getElementById('river-detail').addEventListener('change', function() {
+            riverDetailLevel = parseInt(this.value);
+            updateRiversLayer();
+        });
+
+        // River style selector
+        document.getElementById('river-style').addEventListener('change', function() {
+            riverStyle = this.value;
+            updateRiversLayer();
+        });
+
+        // Coastlines toggle
+        document.getElementById('toggle-coastlines').addEventListener('click', function() {
+            showCoastlines = !showCoastlines;
+            this.classList.toggle('active', showCoastlines);
+            updateCoastlinesLayer();
+        });
+
+        // Coastline style selector
+        document.getElementById('coastline-style').addEventListener('change', function() {
+            coastlineStyle = this.value;
+            updateCoastlinesLayer();
+        });
+
+        document.getElementById('toggle-contours').addEventListener('click', function() {
+            showContours = !showContours;
+            this.classList.toggle('active', showContours);
+            // Contours would require more complex processing
+            // For now just toggle the button state
+        });
+
+        document.getElementById('toggle-labels').addEventListener('click', function() {
+            showLabels = !showLabels;
+            this.classList.toggle('active', showLabels);
+            toggleLabels();
+        });
+
+        // Opacity slider
+        document.getElementById('opacity-slider').addEventListener('input', function() {
+            terrainOpacity = this.value / 100;
+            document.getElementById('opacity-value').textContent = this.value + '%';
+            refreshElevation();
+        });
+
+        // Intensity slider
+        document.getElementById('intensity-slider').addEventListener('input', function() {
+            terrainIntensity = this.value / 100;
+            document.getElementById('intensity-value').textContent = this.value + '%';
+            refreshElevation();
+        });
+
+        // Max height selector
+        document.getElementById('max-height').addEventListener('change', function() {
+            maxHeight = parseInt(this.value);
+            refreshElevation();
+        });
+
+        // Color preset buttons
+        document.querySelectorAll('.color-preset').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.color-preset').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentRamp = this.dataset.preset;
+                updateLegend();
+                refreshElevation();
+            });
+        });
+
+        // Base map switcher
+        document.querySelectorAll('.basemap-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const mapType = this.dataset.basemap;
+                if (mapType === currentBasemap) return;
+
+                document.querySelectorAll('.basemap-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentBasemap = mapType;
+
+                // Remove old base layer
+                map.removeLayer(baseLayer);
+
+                // Add new base layer
+                const config = baseMaps[mapType];
+                if (config.url) {
+                    baseLayer = L.tileLayer(config.url, {
+                        ...config.options,
+                        attribution: config.attribution + ' | Elevation: AWS Terrain Tiles'
+                    });
+                    baseLayer.addTo(map);
+                    baseLayer.bringToBack();
+                } else {
+                    // Pure black - create an empty layer
+                    baseLayer = L.layerGroup().addTo(map);
+                }
+
+                // Re-order layers: base -> hillshade -> elevation -> coastlines -> rivers -> labels
+                if (showHillshade && hillshadeLayer) {
+                    map.removeLayer(hillshadeLayer);
+                    hillshadeLayer.addTo(map);
+                }
+                if (showElevation && elevationLayer) {
+                    map.removeLayer(elevationLayer);
+                    elevationLayer.addTo(map);
+                }
+                if (showCoastlines) {
+                    updateCoastlinesLayer(); // Will update colors for new basemap
+                }
+                if (showRivers) {
+                    updateRiversLayer();
+                }
+            });
+        });
+
+        // Update river and coastline styles on zoom
+        map.on('zoomend', function() {
+            if (showRivers) updateRiversLayer();
+            if (showCoastlines) updateCoastlinesLayer();
+        });
+
+        // Show elevation on mouse move
+        map.on('mousemove', function(e) {
+            // We'd need to sample the tile at this point - simplified version
+            // In practice you'd use a web worker or server endpoint
+            document.getElementById('elevation-display').textContent =
+                `Lat: ${e.latlng.lat.toFixed(2)}°, Lng: ${e.latlng.lng.toFixed(2)}°`;
+        });
+
+        // Labels layer (optional - off by default for historical maps)
+        let labelsLayer = null;
+        let showLabels = false;
+
+        function toggleLabels() {
+            if (showLabels && !labelsLayer) {
+                labelsLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', {
+                    subdomains: 'abcd',
+                    maxZoom: 20,
+                    pane: 'overlayPane'
+                }).addTo(map);
+            } else if (!showLabels && labelsLayer) {
+                map.removeLayer(labelsLayer);
+                labelsLayer = null;
+            }
+        }
+
+        // Controls panel toggle
+        document.getElementById('controls-tab').addEventListener('click', function() {
+            const wrapper = document.getElementById('controls-wrapper');
+            wrapper.classList.toggle('collapsed');
+
+            // Update legend/info positions
+            const isCollapsed = wrapper.classList.contains('collapsed');
+            document.querySelector('.elevation-info').style.bottom = isCollapsed ? '50px' : '160px';
+            document.querySelector('.legend').style.bottom = isCollapsed ? '50px' : '160px';
+        });
+    </script>
+</body>
+</html>

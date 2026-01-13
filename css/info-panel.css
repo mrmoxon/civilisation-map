@@ -1,0 +1,907 @@
+/* Info panel - polity/city details */
+.info-panel {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(22, 33, 62, 0.98);
+    padding: 16px;
+    border-radius: 10px;
+    z-index: 1000;
+    max-width: 340px;
+    min-width: 280px;
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
+    display: none;
+    border: 1px solid #0f3460;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+
+/* Scrollbar styling for info panel */
+.info-panel::-webkit-scrollbar {
+    width: 6px;
+}
+
+.info-panel::-webkit-scrollbar-track {
+    background: rgba(15, 52, 96, 0.3);
+    border-radius: 3px;
+}
+
+.info-panel::-webkit-scrollbar-thumb {
+    background: #1a4a7a;
+    border-radius: 3px;
+}
+
+.info-panel::-webkit-scrollbar-thumb:hover {
+    background: #2a5a8a;
+}
+
+.info-panel.pinned {
+    border-color: #4da6ff;
+}
+
+.info-panel-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.info-panel-header h3 {
+    flex: 1;
+    margin: 0;
+    color: #e94560;
+    font-size: 16px;
+    line-height: 1.3;
+}
+
+.info-panel.city .info-panel-header h3 {
+    color: #8888aa;
+}
+
+.info-panel-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.info-panel-btn {
+    background: #0f3460;
+    border: 1px solid #1a4a7a;
+    color: #888;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.info-panel-btn:hover {
+    color: #fff;
+    border-color: #4da6ff;
+}
+
+.info-panel-btn.copied {
+    background: #1a4a7a;
+    color: #50c878;
+    border-color: #50c878;
+}
+
+/* Wiki button */
+.info-wiki-btn {
+    width: auto !important;
+    padding: 0 8px;
+    font-size: 10px;
+    text-decoration: none;
+    gap: 2px;
+}
+
+.info-wiki-btn .wiki-arrow {
+    font-size: 9px;
+}
+
+.info-panel-close {
+    display: none;
+}
+
+.info-panel.pinned .info-panel-close {
+    display: flex;
+}
+
+.info-panel-subtitle {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #0f3460;
+}
+
+.info-panel p {
+    margin: 6px 0;
+    font-size: 13px;
+    color: #ccc;
+}
+
+.info-panel p strong {
+    color: #888;
+}
+
+.info-panel a {
+    color: #4da6ff;
+}
+
+.info-section {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #0f3460;
+}
+
+.info-section-title {
+    font-size: 11px;
+    color: #666;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+}
+
+/* Cities section - collapsible */
+.info-cities-section {
+    margin-top: 12px;
+    border-top: 1px solid #0f3460;
+    padding-top: 10px;
+}
+
+.info-cities-section .info-section-title {
+    margin-bottom: 6px;
+}
+
+.info-cities-header-row {
+    display: flex;
+    align-items: center;
+    padding: 4px 10px;
+    margin-bottom: 2px;
+    font-size: 9px;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.city-col-name {
+    flex: 1;
+    min-width: 0;
+}
+
+.city-col-founded {
+    width: 70px;
+    text-align: right;
+    padding-right: 8px;
+}
+
+.city-col-pop {
+    width: 50px;
+    text-align: right;
+}
+
+.info-cities-top {
+    margin-bottom: 0;
+}
+
+.info-cities-more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px;
+    margin-top: 4px;
+    cursor: pointer;
+    border-radius: 4px;
+    background: rgba(15, 52, 96, 0.2);
+    transition: all 0.15s;
+}
+
+.info-cities-more:hover {
+    background: rgba(15, 52, 96, 0.4);
+}
+
+.cities-more-text {
+    font-size: 11px;
+    color: #666;
+}
+
+.cities-chevron {
+    font-size: 10px;
+    color: #666;
+    transition: transform 0.2s;
+}
+
+.info-cities-section.expanded .cities-chevron {
+    transform: rotate(180deg);
+}
+
+.info-cities-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+
+.info-cities-section.expanded .info-cities-content {
+    max-height: 150px;
+    overflow-y: auto;
+    margin-top: 4px;
+}
+
+/* Scrollbar for cities */
+.info-cities-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.info-cities-content::-webkit-scrollbar-track {
+    background: rgba(15, 52, 96, 0.3);
+    border-radius: 3px;
+}
+
+.info-cities-content::-webkit-scrollbar-thumb {
+    background: #1a4a7a;
+    border-radius: 3px;
+}
+
+.info-cities-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 0;
+}
+
+.info-city-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    background: rgba(15, 52, 96, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.info-city-item:hover {
+    background: rgba(15, 52, 96, 0.6);
+}
+
+.info-city-item .city-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    color: #ccc;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.info-city-item:hover .city-name {
+    color: #fff;
+}
+
+.info-city-item .city-founded {
+    width: 70px;
+    font-size: 10px;
+    color: #666;
+    text-align: right;
+    padding-right: 8px;
+}
+
+.info-city-item .city-pop {
+    width: 50px;
+    font-size: 11px;
+    color: #4da6ff;
+    text-align: right;
+}
+
+/* River polity items */
+.info-polities-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.info-polity-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: rgba(15, 52, 96, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.info-polity-item:hover {
+    background: rgba(15, 52, 96, 0.6);
+}
+
+.info-polity-item .polity-marker {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.info-polity-item .polity-name {
+    flex: 1;
+    font-size: 12px;
+    color: #ccc;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.info-polity-item:hover .polity-name {
+    color: #fff;
+}
+
+/* River panel specific */
+.info-panel.river {
+    border-left-color: #4fc3f7;
+}
+
+/* River tooltip */
+.river-tooltip {
+    background: rgba(15, 23, 42, 0.95) !important;
+    border: 1px solid #4fc3f7 !important;
+    border-radius: 4px !important;
+    color: #4fc3f7 !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    padding: 4px 8px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+.river-tooltip::before {
+    border-right-color: #4fc3f7 !important;
+}
+
+/* City tooltip */
+.city-tooltip {
+    background: rgba(15, 23, 42, 0.95) !important;
+    border: 1px solid #e94560 !important;
+    border-radius: 4px !important;
+    color: #e94560 !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    padding: 4px 8px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Compound info panel - invisible container, only stacked panels visible */
+.info-panel.compound {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+}
+
+.info-panel.compound > .info-panel-header {
+    display: none;
+}
+
+.info-panel.compound > .info-panel-subtitle {
+    display: none;
+}
+
+/* Pinned state for compound - highlight first panel */
+.info-panel.compound.pinned .info-stacked-panel:first-child {
+    border-color: #4da6ff;
+}
+
+
+/* Stacked panels - each looks like a standalone info-panel */
+.info-stacked-panel {
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid #0f3460;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.info-stacked-panel:last-child {
+    margin-bottom: 0;
+}
+
+.info-stacked-panel .stacked-header {
+    padding: 12px 14px 8px;
+    position: relative;
+}
+
+/* Action buttons in stacked header */
+.stacked-actions {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 6px;
+}
+
+.stacked-actions .info-panel-btn {
+    background: rgba(15, 52, 96, 0.8);
+}
+
+.stacked-actions .info-panel-close {
+    display: flex;
+}
+
+.info-stacked-panel .stacked-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: #e94560;
+    margin: 0 0 4px 0;
+}
+
+.info-stacked-panel .stacked-subtitle {
+    font-size: 12px;
+    color: #8892b0;
+    margin: 0;
+}
+
+.info-stacked-panel .stacked-content {
+    padding: 0 14px 14px;
+}
+
+.info-stacked-panel .info-stats-grid {
+    margin-top: 8px;
+    margin-bottom: 12px;
+}
+
+.info-stacked-panel .info-section {
+    margin-top: 12px;
+}
+
+.info-stacked-panel .info-section-title {
+    margin-bottom: 6px;
+}
+
+/* City panel has purple header */
+.info-stacked-panel.city-panel .stacked-name {
+    color: #8888aa;
+}
+
+/* Territory panel has red header (default) */
+.info-stacked-panel.territory-panel .stacked-name {
+    color: #e94560;
+}
+
+/* River panel has cyan header */
+.info-stacked-panel.river-panel .stacked-name {
+    color: #4fc3f7;
+}
+
+.info-stacked-panel.river-panel {
+    border-left: 3px solid #4fc3f7;
+}
+
+/* History panel styling */
+.info-stacked-panel.history-panel {
+    background: rgba(15, 23, 42, 0.95);
+}
+
+.info-stacked-panel.history-panel .stacked-content {
+    padding: 14px;
+}
+
+.info-stacked-panel.history-panel .info-history {
+    margin-top: 12px;
+    border-top: none;
+    padding-top: 0;
+}
+
+.info-stacked-panel.history-panel .info-previously-section {
+    margin-top: 0;
+}
+
+/* Expand button in subtitle */
+.panel-expand-btn {
+    background: transparent;
+    border: none;
+    color: #4da6ff;
+    font-size: 10px;
+    cursor: pointer;
+    padding: 2px 6px;
+    margin-left: 8px;
+    transition: all 0.15s;
+    vertical-align: middle;
+}
+
+.panel-expand-btn:hover {
+    color: #7dc4ff;
+}
+
+/* Collapsed panel styling - clickable header */
+.info-stacked-panel:not(.expanded) .stacked-header {
+    cursor: pointer;
+}
+
+.info-stacked-panel:not(.expanded) .stacked-header:hover {
+    background: rgba(77, 166, 255, 0.08);
+}
+
+.info-stacked-panel:not(.expanded) .stacked-content {
+    padding-bottom: 10px;
+}
+
+/* Expanded panel gets visual emphasis */
+.info-stacked-panel.expanded {
+    border-color: #1a4a7a;
+}
+
+/* Wiki link in territory panel */
+.info-wiki-link {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 6px 12px;
+    background: rgba(15, 52, 96, 0.5);
+    border: 1px solid #1a4a7a;
+    border-radius: 4px;
+    color: #4da6ff;
+    text-decoration: none;
+    font-size: 12px;
+    transition: all 0.15s;
+}
+
+.info-wiki-link:hover {
+    background: rgba(15, 52, 96, 0.8);
+    border-color: #4da6ff;
+}
+
+/* History section in compound view */
+.info-history-panel {
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid #0f3460;
+    border-radius: 12px;
+    padding: 14px;
+    margin-top: 12px;
+}
+
+/* Legacy compound section styles (for backwards compatibility) */
+.info-compound-section {
+    padding: 10px 0;
+    border-bottom: 1px solid #0f3460;
+}
+
+.info-compound-section:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.info-compound-section:first-child {
+    padding-top: 0;
+}
+
+.info-compound-section .info-section-title {
+    margin-bottom: 8px;
+}
+
+.info-compound-section .info-stats-grid {
+    margin-top: 0;
+    margin-bottom: 6px;
+}
+
+.info-compound-section p {
+    margin: 4px 0 0 0;
+    font-size: 12px;
+}
+
+.population-bar {
+    margin-top: 10px;
+    height: 6px;
+    background: #0f3460;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.population-bar-fill {
+    height: 100%;
+    background: linear-gradient(to right, #4da6ff, #e94560);
+    transition: width 0.3s;
+}
+
+.info-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.info-stat {
+    background: rgba(15, 52, 96, 0.5);
+    padding: 8px;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.info-stat-value {
+    font-size: 16px;
+    font-weight: bold;
+    color: #4da6ff;
+}
+
+.info-stat-label {
+    font-size: 10px;
+    color: #666;
+    text-transform: uppercase;
+}
+
+/* Coordinates display */
+.info-coords {
+    font-size: 12px;
+    color: #666;
+    background: rgba(15, 52, 96, 0.3);
+    padding: 8px 10px;
+    border-radius: 4px;
+    margin-top: 10px;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+}
+
+.info-coords .coord-label {
+    color: #888;
+    margin-right: 6px;
+}
+
+/* Clickable coordinate links */
+.info-coord-link {
+    color: #4da6ff;
+    cursor: pointer;
+    transition: color 0.15s;
+}
+
+.info-coord-link:hover {
+    color: #7dc4ff;
+    text-decoration: underline;
+}
+
+/* Status box for unavailable cities/territories */
+.info-status-box {
+    background: rgba(15, 52, 96, 0.5);
+    padding: 12px;
+    border-radius: 6px;
+    margin-top: 10px;
+    border-left: 3px solid #4da6ff;
+}
+
+.info-status {
+    margin: 0;
+    font-size: 13px;
+    color: #aaa;
+}
+
+.info-status strong {
+    color: #4da6ff;
+}
+
+.info-status-sub {
+    font-size: 11px;
+    color: #666;
+}
+
+.info-jump-btn {
+    background: #0f3460;
+    border: 1px solid #1a4a7a;
+    color: #4da6ff;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    margin-top: 8px;
+    transition: all 0.15s;
+}
+
+.info-jump-btn:hover {
+    background: #1a4a7a;
+    border-color: #4da6ff;
+}
+
+/* Previously section - quick glimpse at prior empire */
+.info-previously-section {
+    margin-top: 12px;
+}
+
+.previously-header {
+    font-size: 10px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+
+.info-previously {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: rgba(15, 52, 96, 0.4);
+    border-radius: 4px;
+    border-left: 3px solid #666;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.info-previously:hover {
+    background: rgba(15, 52, 96, 0.6);
+    border-left-color: #4da6ff;
+}
+
+.info-previously.unclaimed {
+    cursor: default;
+    border-left-color: #333;
+}
+
+.info-previously.unclaimed:hover {
+    background: rgba(15, 52, 96, 0.4);
+    border-left-color: #333;
+}
+
+.previously-marker {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.previously-name {
+    font-size: 12px;
+    color: #ccc;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.info-previously:hover .previously-name {
+    color: #fff;
+}
+
+.info-previously.unclaimed .previously-name {
+    color: #666;
+    font-style: italic;
+}
+
+.previously-period {
+    font-size: 10px;
+    color: #666;
+    flex-shrink: 0;
+}
+
+/* History timeline section */
+.info-history {
+    margin-top: 12px;
+    border-top: 1px solid #0f3460;
+    padding-top: 10px;
+}
+
+.info-history-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 6px 0;
+    transition: opacity 0.15s;
+}
+
+.info-history-header:hover {
+    opacity: 0.8;
+}
+
+.info-history-header .info-section-title {
+    margin: 0;
+    flex: 1;
+}
+
+.history-count {
+    font-size: 11px;
+    color: #666;
+    background: rgba(15, 52, 96, 0.5);
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.history-chevron {
+    font-size: 10px;
+    color: #666;
+    transition: transform 0.2s;
+}
+
+.info-history.expanded .history-chevron {
+    transform: rotate(180deg);
+}
+
+.info-history-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+
+.info-history.expanded .info-history-content {
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+/* Scrollbar styling for history */
+.info-history-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.info-history-content::-webkit-scrollbar-track {
+    background: rgba(15, 52, 96, 0.3);
+    border-radius: 3px;
+}
+
+.info-history-content::-webkit-scrollbar-thumb {
+    background: #1a4a7a;
+    border-radius: 3px;
+}
+
+.info-history-content::-webkit-scrollbar-thumb:hover {
+    background: #2a5a8a;
+}
+
+.history-timeline {
+    padding: 8px 0;
+}
+
+.history-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    margin: 2px 0;
+    background: rgba(15, 52, 96, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-left: 3px solid transparent;
+}
+
+.history-item:hover {
+    background: rgba(15, 52, 96, 0.6);
+}
+
+.history-item.current {
+    background: rgba(77, 166, 255, 0.15);
+    border-left-color: #4da6ff;
+}
+
+.history-marker {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.history-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.history-name {
+    font-size: 12px;
+    color: #ccc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.history-item.current .history-name {
+    color: #fff;
+    font-weight: 500;
+}
+
+.history-period {
+    font-size: 10px;
+    color: #666;
+    margin-top: 2px;
+}
+
+.history-duration {
+    font-size: 10px;
+    color: #666;
+    flex-shrink: 0;
+}
