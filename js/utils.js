@@ -1,16 +1,59 @@
 // Formatting and geometry utility functions
-import { state, colors, colorOverrides } from './state.js';
+import { state, colors, colorOverrides, colorPalettes, mixedPalettes } from './state.js';
+
+// Hash functions for color mapping
+function defaultHash(name) {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return Math.abs(hash);
+}
+
+// DJB2 hash - different distribution pattern
+function djb2Hash(name) {
+    let hash = 5381;
+    for (let i = 0; i < name.length; i++) {
+        hash = ((hash << 5) + hash) ^ name.charCodeAt(i);
+    }
+    return Math.abs(hash);
+}
+
+// FNV-1a hash - yet another distribution pattern
+function fnv1aHash(name) {
+    let hash = 2166136261;
+    for (let i = 0; i < name.length; i++) {
+        hash ^= name.charCodeAt(i);
+        hash = (hash * 16777619) >>> 0;
+    }
+    return hash;
+}
 
 // Color functions
 export function getColor(name) {
     if (colorOverrides[name]) {
         return colorOverrides[name];
     }
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+
+    const paletteKey = state.territoryPalette;
+
+    // Check if it's a mixed palette with alternate hash
+    if (mixedPalettes[paletteKey]) {
+        const mixed = mixedPalettes[paletteKey];
+        const palette = mixed.colors;
+        let hash;
+        switch (mixed.hashMethod) {
+            case 'djb2': hash = djb2Hash(name); break;
+            case 'fnv1a': hash = fnv1aHash(name); break;
+            default: hash = defaultHash(name);
+        }
+        return palette[hash % palette.length];
     }
-    return colors[Math.abs(hash) % colors.length];
+
+    // Standard palette
+    const palette = colorPalettes[paletteKey] || colors;
+    const hash = defaultHash(name);
+    return palette[hash % palette.length];
 }
 
 export function darkenColor(hex, amount = 0.3) {
@@ -532,6 +575,91 @@ export function getRiverPolities(riverGeometry, visiblePolities) {
                 });
                 break; // Found match, no need to check more points
             }
+        }
+    }
+
+    return result;
+}
+
+// Get perimeter points from a polygon geometry (ocean/sea boundary)
+function getPolygonPerimeter(geometry) {
+    const points = [];
+
+    if (geometry.type === 'Polygon') {
+        // Outer ring only (first array)
+        points.push(...geometry.coordinates[0]);
+    } else if (geometry.type === 'MultiPolygon') {
+        // Get outer ring from each polygon
+        for (const polygon of geometry.coordinates) {
+            points.push(...polygon[0]);
+        }
+    }
+
+    return points;
+}
+
+// Find all polities that border a marine feature (ocean, sea, etc.)
+export function getMarinePolities(marineGeometry, visiblePolities) {
+    const marineBbox = getBoundingBox(marineGeometry);
+    const perimeterPoints = getPolygonPerimeter(marineGeometry);
+    const result = [];
+    const foundPolities = new Set();
+
+    // Sample perimeter points for performance (check ~50 points max for larger features)
+    const sampleRate = Math.max(1, Math.floor(perimeterPoints.length / 50));
+
+    // Small buffer distance to check for nearby polities (degrees, ~10km)
+    const bufferDistance = 0.1;
+
+    for (const polity of visiblePolities) {
+        if (foundPolities.has(polity.properties.Name)) continue;
+
+        const polityBbox = getBoundingBox(polity.geometry);
+
+        // Quick bounding box check with buffer
+        const expandedMarineBbox = {
+            minLon: marineBbox.minLon - bufferDistance,
+            maxLon: marineBbox.maxLon + bufferDistance,
+            minLat: marineBbox.minLat - bufferDistance,
+            maxLat: marineBbox.maxLat + bufferDistance
+        };
+        if (!bboxOverlap(expandedMarineBbox, polityBbox)) continue;
+
+        // Check if any sampled perimeter point is inside or near this polity
+        for (let i = 0; i < perimeterPoints.length; i += sampleRate) {
+            const [lon, lat] = perimeterPoints[i];
+
+            // Check if perimeter point is inside the polity (coastal territory)
+            if (pointInGeometry(lon, lat, polity.geometry)) {
+                result.push({
+                    name: polity.properties.Name,
+                    color: getColor(polity.properties.Name),
+                    polity: polity
+                });
+                foundPolities.add(polity.properties.Name);
+                break;
+            }
+
+            // Also check points slightly inland from the coast
+            // Sample a few offset directions to catch nearby polities
+            const offsets = [
+                [bufferDistance, 0], [-bufferDistance, 0],
+                [0, bufferDistance], [0, -bufferDistance]
+            ];
+            let found = false;
+            for (const [dLon, dLat] of offsets) {
+                if (pointInGeometry(lon + dLon, lat + dLat, polity.geometry)) {
+                    result.push({
+                        name: polity.properties.Name,
+                        color: getColor(polity.properties.Name),
+                        polity: polity
+                    });
+                    foundPolities.add(polity.properties.Name);
+                    found = true;
+                    break;
+                }
+            }
+            if (found) break;
         }
     }
 

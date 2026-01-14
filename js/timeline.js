@@ -1,6 +1,7 @@
 // Timeline controls with zoom functionality
 import { state } from './state.js';
 import { updateMap as baseUpdateMap } from './map.js';
+import { updateLeaderboardPosition } from './leaderboard.js';
 
 // Zoom levels: [windowSize, label, majorInterval, minorInterval, showLabelsEvery, showDecades]
 // All levels now show century (100y) markers at minimum for better granularity
@@ -286,6 +287,14 @@ export function setupTimeline() {
         });
     }
 
+    // Watch for collapsed state changes to update leaderboard position
+    if (controlsWrapper) {
+        const collapseObserver = new MutationObserver(() => {
+            setTimeout(updateLeaderboardPosition, 50);
+        });
+        collapseObserver.observe(controlsWrapper, { attributes: true, attributeFilter: ['class'] });
+    }
+
     // Click on bar area (left of RHS buttons) to open with last panel
     const controlsTabLeft = document.querySelector('.controls-tab-left');
     if (controlsTabLeft && controlsWrapper) {
@@ -350,6 +359,34 @@ export function setupTimeline() {
             updateYearInput(newYear);
         });
     });
+
+    // Footer year step buttons (-1 / +1)
+    const yearMinus1 = document.getElementById('year-minus-1');
+    const yearPlus1 = document.getElementById('year-plus-1');
+
+    if (yearMinus1) {
+        yearMinus1.addEventListener('click', function() {
+            const newYear = Math.max(MIN_YEAR, state.currentYear - 1);
+            if (currentZoomLevel > 0 && (newYear < windowStart || newYear > windowEnd)) {
+                centerWindowOnYear(newYear);
+            }
+            timeline.value = newYear;
+            updateMap(newYear);
+            updateYearInput(newYear);
+        });
+    }
+
+    if (yearPlus1) {
+        yearPlus1.addEventListener('click', function() {
+            const newYear = Math.min(MAX_YEAR, state.currentYear + 1);
+            if (currentZoomLevel > 0 && (newYear < windowStart || newYear > windowEnd)) {
+                centerWindowOnYear(newYear);
+            }
+            timeline.value = newYear;
+            updateMap(newYear);
+            updateYearInput(newYear);
+        });
+    }
 
     // Zoom controls
     const zoomInBtn = document.getElementById('zoom-in');
@@ -420,7 +457,7 @@ export function setupTimeline() {
     });
 
     // Toggle buttons
-    document.getElementById('toggle-polities')?.addEventListener('click', function() {
+    document.getElementById('toggle-territories')?.addEventListener('click', function() {
         state.showPolities = !state.showPolities;
         this.classList.toggle('active', state.showPolities);
         updateMap(state.currentYear);
@@ -432,10 +469,19 @@ export function setupTimeline() {
         updateMap(state.currentYear);
     });
 
+    // Territory palette selector
+    document.getElementById('territory-palette')?.addEventListener('change', function() {
+        state.territoryPalette = this.value;
+        updateMap(state.currentYear);
+    });
+
     // Playback controls
     const playBtn = document.getElementById('play-btn');
     const playIcon = playBtn?.querySelector('.play-icon');
     const pauseIcon = playBtn?.querySelector('.pause-icon');
+    const playBtnMini = document.getElementById('play-btn-mini');
+    const playIconMini = playBtnMini?.querySelector('.play-icon-mini');
+    const pauseIconMini = playBtnMini?.querySelector('.pause-icon-mini');
     const speedSelect = document.getElementById('playback-speed');
     let playbackInterval = null;
     let isPlaying = false;
@@ -443,11 +489,18 @@ export function setupTimeline() {
     function startPlayback() {
         if (isPlaying) return;
         isPlaying = true;
-        playBtn.classList.add('playing');
-        playIcon.style.display = 'none';
-        pauseIcon.style.display = 'inline';
+        if (playBtn) {
+            playBtn.classList.add('playing');
+            playIcon.style.display = 'none';
+            pauseIcon.style.display = 'inline';
+        }
+        if (playBtnMini) {
+            playBtnMini.classList.add('playing');
+            playIconMini.style.display = 'none';
+            pauseIconMini.style.display = 'inline';
+        }
 
-        const interval = parseInt(speedSelect.value) || 33;
+        const interval = parseInt(speedSelect?.value) || 33;
         playbackInterval = setInterval(() => {
             const newYear = state.currentYear + 1;
             if (newYear > MAX_YEAR) {
@@ -469,9 +522,16 @@ export function setupTimeline() {
     function stopPlayback() {
         if (!isPlaying) return;
         isPlaying = false;
-        playBtn.classList.remove('playing');
-        playIcon.style.display = 'inline';
-        pauseIcon.style.display = 'none';
+        if (playBtn) {
+            playBtn.classList.remove('playing');
+            playIcon.style.display = 'inline';
+            pauseIcon.style.display = 'none';
+        }
+        if (playBtnMini) {
+            playBtnMini.classList.remove('playing');
+            playIconMini.style.display = 'inline';
+            pauseIconMini.style.display = 'none';
+        }
         if (playbackInterval) {
             clearInterval(playbackInterval);
             playbackInterval = null;
@@ -480,6 +540,16 @@ export function setupTimeline() {
 
     if (playBtn) {
         playBtn.addEventListener('click', () => {
+            if (isPlaying) {
+                stopPlayback();
+            } else {
+                startPlayback();
+            }
+        });
+    }
+
+    if (playBtnMini) {
+        playBtnMini.addEventListener('click', () => {
             if (isPlaying) {
                 stopPlayback();
             } else {

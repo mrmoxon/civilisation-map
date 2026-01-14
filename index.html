@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="css/info-panel.css">
     <link rel="stylesheet" href="css/leaderboard.css">
     <link rel="stylesheet" href="css/graph-panel.css">
+    <link rel="stylesheet" href="css/settings-panel.css">
 </head>
 <body>
     <div id="loading" class="loading">
@@ -127,6 +128,11 @@
         </div>
     </div>
 
+    <!-- Pinned toggles menu - sits above quick menu -->
+    <div id="pinned-menu" class="pinned-menu hidden">
+        <div class="pinned-toggles" id="pinned-toggles"></div>
+    </div>
+
     <!-- Quick menu - vertical buttons above timeline -->
     <div id="quick-menu" class="quick-menu">
         <button class="quick-menu-btn" id="qm-stats" title="Toggle Stats">
@@ -162,26 +168,36 @@
     <div class="controls-wrapper" id="controls-wrapper">
         <div class="controls-tab">
             <div class="controls-tab-left">
-                <button class="collapse-toggle" id="collapse-toggle" title="Collapse panel">
-                    <span class="toggle-icon">▼</span>
-                </button>
                 <div class="panel-tabs">
-                    <button class="panel-tab active" data-panel="timeline">
-                        <span id="year-display-mini">1 CE</span>
-                        <span class="tab-label">Timeline</span>
-                    </button>
                     <button class="panel-tab" data-panel="disputes">
+                        <span class="tab-icon disputes-icon">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2c0 4-4 6-4 10a4 4 0 0 0 8 0c0-4-4-6-4-10z"/>
+                                <path d="M12 12c0 2-1.5 3-1.5 4.5a1.5 1.5 0 0 0 3 0c0-1.5-1.5-2.5-1.5-4.5z" fill="currentColor" stroke="none"/>
+                            </svg>
+                        </span>
                         <span class="tab-label">Disputes</span>
                     </button>
                     <button class="panel-tab" data-panel="view">
+                        <span class="tab-terrain-preview"></span>
                         <span class="tab-label">View</span>
                     </button>
                 </div>
             </div>
             <div class="controls-tab-right">
-                <button id="toggle-polities" class="toggle-btn active">Territories</button>
-                <button id="toggle-cities" class="toggle-btn active">Cities</button>
-                <button id="settings-btn" class="settings-btn" title="Settings">
+                <button class="panel-tab active" data-panel="timeline">
+                    <span id="year-display-mini">1 CE</span>
+                    <span class="tab-label">Timeline</span>
+                </button>
+                <div class="playback-controls-mini">
+                    <button class="playback-btn-mini" id="year-minus-1" title="Back 1 year">−1</button>
+                    <button class="playback-btn-mini play-pause-mini" id="play-btn-mini" title="Play/Pause">
+                        <span class="play-icon-mini">▶</span>
+                        <span class="pause-icon-mini" style="display:none;">❚❚</span>
+                    </button>
+                    <button class="playback-btn-mini" id="year-plus-1" title="Forward 1 year">+1</button>
+                </div>
+                <button class="panel-tab settings-tab" data-panel="settings" title="Settings">
                     <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
                     </svg>
@@ -282,282 +298,384 @@
                 </div>
             </div>
             <div class="controls-panel" id="view-panel">
-                <div class="view-content">
-                    <!-- Base Map Section -->
-                    <div class="view-section">
-                        <div class="view-section-title">Base Map</div>
-                        <div class="basemap-grid">
-                            <button class="basemap-btn" data-basemap="dark" title="Dark">
-                                <div class="preview" style="background: linear-gradient(135deg, #1a1a2e, #2d2d44);"></div>
-                                Dark
+                <div class="ribbon-content">
+                    <!-- Base Map - Land Only -->
+                    <div class="ribbon-section ribbon-section-basemap">
+                        <div class="ribbon-section-title">Land</div>
+                        <div class="basemap-grid-compact">
+                            <button class="basemap-chip" data-basemap="dark" title="Dark">
+                                <span class="chip-preview" style="background: linear-gradient(135deg, #1a1a2e, #2d2d44);"></span>
+                                <span class="chip-label">Dark</span>
                             </button>
-                            <button class="basemap-btn" data-basemap="light" title="Light">
-                                <div class="preview" style="background: linear-gradient(135deg, #e8e8e8, #f5f5f5);"></div>
-                                Light
+                            <button class="basemap-chip" data-basemap="light" title="Light">
+                                <span class="chip-preview" style="background: linear-gradient(135deg, #e8e8e8, #f5f5f5);"></span>
+                                <span class="chip-label">Light</span>
                             </button>
-                            <button class="basemap-btn active" data-basemap="satellite" title="Satellite">
-                                <div class="preview" style="background: linear-gradient(135deg, #1a3d1a, #2d5a3d, #1a4a6e);"></div>
-                                Satellite
+                            <button class="basemap-chip active" data-basemap="satellite" title="Satellite">
+                                <span class="chip-preview" style="background: linear-gradient(135deg, #1a3d1a, #2d5a3d);"></span>
+                                <span class="chip-label">Sat</span>
                             </button>
-                            <button class="basemap-btn" data-basemap="physical" title="Physical">
-                                <div class="preview" style="background: linear-gradient(135deg, #c9d9a0, #a8c090, #8eb078);"></div>
-                                Physical
+                            <button class="basemap-chip" data-basemap="physical" title="Physical">
+                                <span class="chip-preview" style="background: linear-gradient(135deg, #c9d9a0, #8eb078);"></span>
+                                <span class="chip-label">Phys</span>
                             </button>
-                            <button class="basemap-btn" data-basemap="terrain" title="Terrain">
-                                <div class="preview" style="background: linear-gradient(135deg, #d4e4bc, #c9d4a4, #e8dcc8);"></div>
-                                Terrain
+                            <button class="basemap-chip" data-basemap="terrain" title="Terrain">
+                                <span class="chip-preview" style="background: linear-gradient(135deg, #d4e4bc, #e8dcc8);"></span>
+                                <span class="chip-label">Terr</span>
                             </button>
-                            <button class="basemap-btn" data-basemap="toner" title="Toner">
-                                <div class="preview" style="background: linear-gradient(135deg, #fff, #ccc, #888);"></div>
-                                Toner
+                            <button class="basemap-chip" data-basemap="toner" title="Toner">
+                                <span class="chip-preview" style="background: linear-gradient(135deg, #fff, #888);"></span>
+                                <span class="chip-label">Tone</span>
                             </button>
-                            <button class="basemap-btn" data-basemap="topo" title="Topo">
-                                <div class="preview" style="background: linear-gradient(135deg, #f2efe9, #d4e4bc, #c9b896);"></div>
-                                Topo
+                            <button class="basemap-chip" data-basemap="topo" title="Topo">
+                                <span class="chip-preview" style="background: linear-gradient(135deg, #f2efe9, #c9b896);"></span>
+                                <span class="chip-label">Topo</span>
                             </button>
-                            <button class="basemap-btn" data-basemap="black" title="Black">
-                                <div class="preview" style="background: #000;"></div>
-                                Black
+                            <button class="basemap-chip" data-basemap="black" title="Black">
+                                <span class="chip-preview" style="background: #000;"></span>
+                                <span class="chip-label">Blk</span>
                             </button>
                         </div>
                     </div>
 
-                    <!-- Layers Section -->
-                    <div class="view-section">
-                        <div class="view-section-title">Layers</div>
-                        <div class="view-row">
-                            <button id="toggle-elevation" class="toggle-btn active">Elevation</button>
-                            <button id="toggle-hillshade" class="toggle-btn">Hillshade</button>
-                            <button id="toggle-rivers" class="toggle-btn active">Rivers</button>
-                            <button id="toggle-coastlines" class="toggle-btn active">Coastlines</button>
-                            <button id="toggle-labels" class="toggle-btn">Labels</button>
-                            <button id="toggle-civ-names" class="toggle-btn">Civ Names</button>
+                    <div class="ribbon-divider"></div>
+
+                    <!-- Territories Section -->
+                    <div class="ribbon-section" id="territories-controls">
+                        <div class="ribbon-section-title">Territories</div>
+                        <div class="ribbon-toggle-row">
+                            <button id="toggle-territories" class="ribbon-toggle active">On</button>
+                            <button class="pin-btn" data-toggle="territories" title="Pin to quick access">
+                                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M8 1v6M5 7h6l-1 5H6l-1-5zM6 12v3M10 12v3"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="ribbon-controls">
+                            <select id="territory-palette" title="Color palette">
+                                <option value="default" selected>Default</option>
+                                <option value="mixed1">Mixed I</option>
+                                <option value="mixed2">Mixed II</option>
+                                <option value="warm">Warm</option>
+                                <option value="cool">Cool</option>
+                                <option value="vivid">Vivid</option>
+                                <option value="earth">Earth</option>
+                            </select>
+                        </div>
+                        <div class="ribbon-sub-toggle">
+                            <span class="ribbon-sub-label">MODERN LABELS</span>
+                            <button id="toggle-labels" class="ribbon-toggle">Off</button>
                         </div>
                     </div>
 
-                    <!-- Civ Names Section -->
-                    <div class="view-section" id="civ-names-controls">
-                        <div class="view-section-title">Civ Names</div>
-                        <div class="view-row">
-                            <div class="view-control-group">
-                                <label>Position</label>
-                                <select id="label-position">
-                                    <option value="centroid">Centroid</option>
-                                    <option value="visual" selected>Visual Center</option>
-                                </select>
-                            </div>
-                            <div class="view-control-group">
-                                <label>Density</label>
-                                <select id="label-density">
-                                    <option value="crowded">Crowded</option>
-                                    <option value="balanced">Balanced</option>
-                                    <option value="major" selected>Major</option>
-                                </select>
-                            </div>
-                            <div class="view-control-group">
-                                <label>Subtlety</label>
-                                <select id="label-subtlety">
-                                    <option value="bold">Bold</option>
-                                    <option value="normal" selected>Normal</option>
-                                    <option value="subtle">Subtle</option>
-                                    <option value="faint">Faint</option>
-                                </select>
-                            </div>
-                            <div class="view-control-group">
-                                <label>Case</label>
-                                <select id="label-case">
-                                    <option value="uppercase" selected>ALL CAPS</option>
-                                    <option value="capitalize">Title Case</option>
-                                    <option value="none">Normal</option>
-                                </select>
-                            </div>
-                            <div class="view-control-group">
-                                <label>Contrast</label>
-                                <select id="label-contrast">
-                                    <option value="high">High</option>
-                                    <option value="medium" selected>Medium</option>
-                                    <option value="low">Low</option>
-                                    <option value="none">None</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="ribbon-divider"></div>
 
                     <!-- Elevation Section -->
-                    <div class="view-section" id="elevation-controls">
-                        <div class="view-section-title">Elevation</div>
-                        <div class="view-row">
-                            <div class="view-control-group">
-                                <label>Opacity</label>
+                    <div class="ribbon-section" id="elevation-controls">
+                        <div class="ribbon-section-title">Elevation</div>
+                        <div class="ribbon-toggle-row">
+                            <button id="toggle-elevation" class="ribbon-toggle active">On</button>
+                            <button class="pin-btn" data-toggle="elevation" title="Pin to quick access">
+                                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M8 1v6M5 7h6l-1 5H6l-1-5zM6 12v3M10 12v3"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="ribbon-controls">
+                            <select id="terrain-max-height" title="Max height">
+                                <option value="1500">1.5km</option>
+                                <option value="2500">2.5km</option>
+                                <option value="3500" selected>3.5km</option>
+                                <option value="5000">5km</option>
+                                <option value="8848">8.8km</option>
+                            </select>
+                            <div class="ribbon-slider-group">
+                                <label>Op</label>
                                 <input type="range" id="terrain-opacity-slider" min="0" max="100" value="50">
-                                <span id="terrain-opacity-value" class="value-display">50%</span>
                             </div>
-                            <div class="view-control-group">
-                                <label>Intensity</label>
+                            <div class="ribbon-slider-group">
+                                <label>Int</label>
                                 <input type="range" id="terrain-intensity-slider" min="0" max="200" value="200">
-                                <span id="terrain-intensity-value" class="value-display">200%</span>
                             </div>
-                            <div class="view-control-group">
-                                <label>Max</label>
-                                <select id="terrain-max-height">
-                                    <option value="500">500m</option>
-                                    <option value="1000">1,000m</option>
-                                    <option value="1500">1,500m</option>
-                                    <option value="2000">2,000m</option>
-                                    <option value="2500">2,500m</option>
-                                    <option value="3000">3,000m</option>
-                                    <option value="3500" selected>3,500m</option>
-                                    <option value="4000">4,000m</option>
-                                    <option value="5000">5,000m</option>
-                                    <option value="8848">8,848m</option>
-                                </select>
+                        </div>
+                        <div class="gradient-picker" id="elevation-gradient-picker">
+                            <div class="gradient-selected" data-preset="terrain" style="background: linear-gradient(90deg, #1a472a, #8b7355, #fff);" title="Click to change"></div>
+                            <div class="gradient-dropdown">
+                                <div class="gradient-option active" data-preset="terrain" style="background: linear-gradient(90deg, #1a472a, #8b7355, #fff);">
+                                    <span class="gradient-label">Terrain</span>
+                                </div>
+                                <div class="gradient-option" data-preset="heat" style="background: linear-gradient(90deg, #000080, #ffd700, #fff);">
+                                    <span class="gradient-label">Heat</span>
+                                </div>
+                                <div class="gradient-option" data-preset="earth" style="background: linear-gradient(90deg, #228b22, #daa520, #fff);">
+                                    <span class="gradient-label">Earth</span>
+                                </div>
+                                <div class="gradient-option" data-preset="mono" style="background: linear-gradient(90deg, #1a1a2e, #8a8aaa, #fff);">
+                                    <span class="gradient-label">Mono</span>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Color Ramp Section -->
-                    <div class="view-section" id="colorramp-controls">
-                        <div class="view-section-title">Color Ramp</div>
-                        <div class="color-presets">
-                            <div class="color-preset active" data-preset="terrain"
-                                 style="background: linear-gradient(90deg, #1a472a, #2d5a27, #8b7355, #a0522d, #fff);"
-                                 title="Terrain"></div>
-                            <div class="color-preset" data-preset="heat"
-                                 style="background: linear-gradient(90deg, #000080, #4169e1, #ffd700, #ff4500, #fff);"
-                                 title="Heat"></div>
-                            <div class="color-preset" data-preset="earth"
-                                 style="background: linear-gradient(90deg, #228b22, #9acd32, #daa520, #8b4513, #fff);"
-                                 title="Earth"></div>
-                            <div class="color-preset" data-preset="mono"
-                                 style="background: linear-gradient(90deg, #1a1a2e, #4a4a6a, #8a8aaa, #cacaea, #fff);"
-                                 title="Mono"></div>
-                            <div class="color-preset" data-preset="volcanic"
-                                 style="background: linear-gradient(90deg, #0d0d0d, #4a1c1c, #8b0000, #ff4500, #ffd700);"
-                                 title="Volcanic"></div>
-                        </div>
-                    </div>
+                    <div class="ribbon-divider"></div>
 
                     <!-- Rivers Section -->
-                    <div class="view-section" id="rivers-controls">
-                        <div class="view-section-title">Rivers</div>
-                        <div class="view-row">
-                            <div class="view-control-group">
-                                <label>Detail</label>
-                                <select id="river-detail">
-                                    <option value="2">Large</option>
-                                    <option value="4">Medium</option>
-                                    <option value="6" selected>Small</option>
-                                    <option value="8">Streams</option>
-                                    <option value="10">All</option>
-                                </select>
-                                <span id="river-count-display" class="value-display">—</span>
-                            </div>
-                            <div class="view-control-group">
-                                <label>Style</label>
-                                <select id="river-style">
-                                    <option value="intense">Intense</option>
-                                    <option value="strong" selected>Strong</option>
-                                    <option value="bold">Bold</option>
-                                    <option value="normal">Normal</option>
-                                    <option value="subtle">Subtle</option>
-                                    <option value="faint">Faint</option>
-                                </select>
-                            </div>
+                    <div class="ribbon-section" id="rivers-controls">
+                        <div class="ribbon-section-title">Rivers</div>
+                        <div class="ribbon-toggle-row">
+                            <button id="toggle-rivers" class="ribbon-toggle active">On</button>
+                            <button class="pin-btn" data-toggle="rivers" title="Pin to quick access">
+                                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M8 1v6M5 7h6l-1 5H6l-1-5zM6 12v3M10 12v3"/>
+                                </svg>
+                            </button>
                         </div>
-                        <div class="view-row">
-                            <div class="view-control-group">
-                                <label>Hover</label>
-                                <select id="river-hover">
-                                    <option value="on" selected>On</option>
-                                    <option value="off">Off</option>
-                                </select>
-                            </div>
-                            <div class="view-control-group">
-                                <label>Sensitivity</label>
-                                <select id="river-sensitivity">
-                                    <option value="standard" selected>Standard</option>
-                                    <option value="insensitive">Insensitive</option>
-                                    <option value="off">Off</option>
-                                </select>
-                            </div>
+                        <div class="ribbon-controls">
+                            <select id="river-detail" title="Detail level">
+                                <option value="2">Large</option>
+                                <option value="4">Med</option>
+                                <option value="6" selected>Small</option>
+                                <option value="8">Stream</option>
+                            </select>
+                            <select id="river-style" title="Style">
+                                <option value="intense">Intense</option>
+                                <option value="strong" selected>Strong</option>
+                                <option value="normal">Normal</option>
+                                <option value="subtle">Subtle</option>
+                            </select>
                         </div>
                     </div>
 
-                    <!-- Cities Section -->
-                    <div class="view-section" id="cities-controls">
-                        <div class="view-section-title">Cities</div>
-                        <div class="view-row">
-                            <div class="view-control-group">
-                                <label>Hover</label>
-                                <select id="city-hover">
-                                    <option value="on" selected>On</option>
-                                    <option value="off">Off</option>
-                                </select>
-                            </div>
-                            <div class="view-control-group">
-                                <label>Sensitivity</label>
-                                <select id="city-sensitivity">
-                                    <option value="standard" selected>Standard</option>
-                                    <option value="insensitive">Insensitive</option>
-                                    <option value="off">Off</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="view-row">
-                            <div class="view-control-group">
-                                <label>Lightness</label>
-                                <select id="city-lightness">
-                                    <option value="dark">Dark</option>
-                                    <option value="normal">Normal</option>
-                                    <option value="light">Light</option>
-                                    <option value="pale" selected>Pale</option>
-                                    <option value="pastel">Pastel</option>
-                                </select>
-                            </div>
-                            <div class="view-control-group">
-                                <label>Outline</label>
-                                <select id="city-outline">
-                                    <option value="none">None</option>
-                                    <option value="thin">Thin</option>
-                                    <option value="normal" selected>Normal</option>
-                                    <option value="bold">Bold</option>
-                                    <option value="heavy">Heavy</option>
-                                </select>
-                            </div>
-                            <div class="view-control-group">
-                                <label>Outline Color</label>
-                                <select id="city-outline-color">
-                                    <option value="light" selected>Light</option>
-                                    <option value="dark">Dark</option>
-                                    <option value="white">White</option>
-                                    <option value="black">Black</option>
-                                    <option value="match">Match Fill</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="ribbon-divider"></div>
 
                     <!-- Coastlines Section -->
-                    <div class="view-section" id="coastlines-controls">
-                        <div class="view-section-title">Coastlines</div>
-                        <div class="view-row">
-                            <div class="view-control-group">
-                                <label>Detail</label>
-                                <select id="coastline-detail">
-                                    <option value="detailed" selected>High (3x)</option>
-                                    <option value="standard">Standard</option>
-                                </select>
+                    <div class="ribbon-section" id="coastlines-controls">
+                        <div class="ribbon-section-title">Coasts</div>
+                        <div class="ribbon-toggle-row">
+                            <button id="toggle-coastlines" class="ribbon-toggle active">On</button>
+                            <button class="pin-btn" data-toggle="coastlines" title="Pin to quick access">
+                                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M8 1v6M5 7h6l-1 5H6l-1-5zM6 12v3M10 12v3"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="ribbon-controls">
+                            <select id="coastline-detail" title="Detail">
+                                <option value="detailed" selected>High</option>
+                                <option value="standard">Std</option>
+                            </select>
+                            <select id="coastline-style" title="Style">
+                                <option value="strong" selected>Strong</option>
+                                <option value="normal">Normal</option>
+                                <option value="subtle">Subtle</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="ribbon-divider"></div>
+
+                    <!-- Oceans Section -->
+                    <div class="ribbon-section" id="oceans-controls">
+                        <div class="ribbon-section-title">Oceans</div>
+                        <div class="ribbon-toggle-row">
+                            <button id="toggle-oceans" class="ribbon-toggle">Off</button>
+                            <button class="pin-btn" data-toggle="oceans" title="Pin to quick access">
+                                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M8 1v6M5 7h6l-1 5H6l-1-5zM6 12v3M10 12v3"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="ribbon-controls">
+                            <select id="ocean-opacity" title="Opacity - use 100% to fully replace base map oceans">
+                                <option value="0.4">40%</option>
+                                <option value="0.6">60%</option>
+                                <option value="0.8">80%</option>
+                                <option value="1.0" selected>100%</option>
+                            </select>
+                            <select id="ocean-palette" title="Color palette">
+                                <option value="blue" selected>Blue</option>
+                                <option value="deep">Deep</option>
+                                <option value="teal">Teal</option>
+                                <option value="navy">Navy</option>
+                                <option value="arctic">Arctic</option>
+                                <option value="warm">Warm</option>
+                                <option value="mono">Mono</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="ribbon-divider"></div>
+
+                    <!-- Civ Names Section -->
+                    <div class="ribbon-section" id="civ-names-controls">
+                        <div class="ribbon-section-title">Civ Names</div>
+                        <div class="ribbon-toggle-row">
+                            <button id="toggle-civ-names" class="ribbon-toggle">Off</button>
+                            <button class="pin-btn" data-toggle="civ-names" title="Pin to quick access">
+                                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M8 1v6M5 7h6l-1 5H6l-1-5zM6 12v3M10 12v3"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="ribbon-controls">
+                            <select id="label-density" title="Density">
+                                <option value="crowded">All</option>
+                                <option value="balanced" selected>Some</option>
+                                <option value="major">Major</option>
+                            </select>
+                            <select id="label-subtlety" title="Subtlety">
+                                <option value="bold">Bold</option>
+                                <option value="normal">Normal</option>
+                                <option value="subtle" selected>Subtle</option>
+                            </select>
+                            <select id="label-case" title="Case">
+                                <option value="uppercase" selected>CAPS</option>
+                                <option value="capitalize">Title</option>
+                                <option value="none">Normal</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="ribbon-divider"></div>
+
+                    <!-- Cities Section -->
+                    <div class="ribbon-section" id="cities-controls">
+                        <div class="ribbon-section-title">Cities</div>
+                        <div class="ribbon-toggle-row">
+                            <button id="toggle-cities" class="ribbon-toggle active">On</button>
+                            <button class="pin-btn" data-toggle="cities" title="Pin to quick access">
+                                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M8 1v6M5 7h6l-1 5H6l-1-5zM6 12v3M10 12v3"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="ribbon-controls">
+                            <select id="city-lightness" title="Lightness">
+                                <option value="normal">Normal</option>
+                                <option value="light">Light</option>
+                                <option value="pale" selected>Pale</option>
+                            </select>
+                            <select id="city-outline" title="Outline">
+                                <option value="none">None</option>
+                                <option value="thin">Thin</option>
+                                <option value="normal" selected>Normal</option>
+                                <option value="bold">Bold</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Hidden elements for compatibility -->
+                    <input type="hidden" id="label-position" value="visual">
+                    <input type="hidden" id="label-contrast" value="medium">
+                    <input type="hidden" id="river-hover" value="on">
+                    <input type="hidden" id="river-sensitivity" value="standard">
+                    <input type="hidden" id="city-hover" value="on">
+                    <input type="hidden" id="city-sensitivity" value="standard">
+                    <input type="hidden" id="city-outline-color" value="light">
+                    <input type="hidden" id="ocean-fill" value="on">
+                    <input type="hidden" id="ocean-line-weight" value="1">
+                    <input type="hidden" id="ocean-line-color" value="#0a2840">
+                    <input type="hidden" id="ocean-tooltips" value="on">
+                </div>
+            </div>
+            <div class="controls-panel" id="settings-panel">
+                <div class="settings-content">
+                    <!-- Theme Section -->
+                    <div class="view-section">
+                        <div class="view-section-title">Theme</div>
+                        <div class="theme-grid">
+                            <button class="theme-option active" data-theme="light-modern">
+                                <div class="theme-preview theme-preview-light"></div>
+                                <span class="theme-name">Light Modern</span>
+                            </button>
+                            <button class="theme-option" data-theme="dark-modern">
+                                <div class="theme-preview theme-preview-dark"></div>
+                                <span class="theme-name">Dark Modern</span>
+                            </button>
+                            <button class="theme-option" data-theme="neutral-modern">
+                                <div class="theme-preview theme-preview-neutral"></div>
+                                <span class="theme-name">Neutral</span>
+                            </button>
+                            <button class="theme-option" data-theme="offwhite-modern">
+                                <div class="theme-preview theme-preview-offwhite"></div>
+                                <span class="theme-name">Offwhite</span>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Crosshair Section -->
+                    <div class="view-section">
+                        <div class="view-section-title">Crosshair</div>
+                        <div class="crosshair-grid">
+                            <button class="crosshair-option active" data-crosshair="cross" title="Cross">
+                                <div class="crosshair-preview">
+                                    <svg width="20" height="20" viewBox="0 0 20 20">
+                                        <line x1="10" y1="2" x2="10" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        <line x1="2" y1="10" x2="18" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                </div>
+                                <span class="crosshair-name">Cross</span>
+                            </button>
+                            <button class="crosshair-option" data-crosshair="crossThin" title="Thin Cross">
+                                <div class="crosshair-preview">
+                                    <svg width="16" height="16" viewBox="0 0 16 16">
+                                        <line x1="8" y1="1" x2="8" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                        <line x1="1" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                    </svg>
+                                </div>
+                                <span class="crosshair-name">Thin</span>
+                            </button>
+                            <button class="crosshair-option" data-crosshair="circle" title="Circle">
+                                <div class="crosshair-preview">
+                                    <svg width="14" height="14" viewBox="0 0 14 14">
+                                        <circle cx="7" cy="7" r="5" fill="currentColor" opacity="0.4" stroke="currentColor" stroke-width="1.5"/>
+                                    </svg>
+                                </div>
+                                <span class="crosshair-name">Circle</span>
+                            </button>
+                            <button class="crosshair-option" data-crosshair="circleHollow" title="Hollow Circle">
+                                <div class="crosshair-preview">
+                                    <svg width="16" height="16" viewBox="0 0 16 16">
+                                        <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/>
+                                    </svg>
+                                </div>
+                                <span class="crosshair-name">Ring</span>
+                            </button>
+                            <button class="crosshair-option" data-crosshair="dot" title="Dot">
+                                <div class="crosshair-preview">
+                                    <svg width="10" height="10" viewBox="0 0 10 10">
+                                        <circle cx="5" cy="5" r="4" fill="currentColor"/>
+                                    </svg>
+                                </div>
+                                <span class="crosshair-name">Dot</span>
+                            </button>
+                            <button class="crosshair-option" data-crosshair="target" title="Target">
+                                <div class="crosshair-preview">
+                                    <svg width="20" height="20" viewBox="0 0 20 20">
+                                        <circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                                        <circle cx="10" cy="10" r="3" fill="currentColor"/>
+                                    </svg>
+                                </div>
+                                <span class="crosshair-name">Target</span>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Layout Section -->
+                    <div class="view-section">
+                        <div class="view-section-title">Layout</div>
+                        <div class="layout-options">
+                            <div class="layout-row">
+                                <span class="layout-label">Controls position</span>
+                                <div class="layout-switch-group">
+                                    <button class="layout-switch-btn active" data-position="bottom">Bottom</button>
+                                    <button class="layout-switch-btn" data-position="top">Top</button>
+                                </div>
                             </div>
-                            <div class="view-control-group">
-                                <label>Style</label>
-                                <select id="coastline-style">
-                                    <option value="intense">Intense</option>
-                                    <option value="strong" selected>Strong</option>
-                                    <option value="bold">Bold</option>
-                                    <option value="normal">Normal</option>
-                                    <option value="subtle">Subtle</option>
-                                    <option value="faint">Faint</option>
-                                </select>
+                            <div class="layout-row">
+                                <span class="layout-label">Edge offset (Arc)</span>
+                                <div class="layout-switch-group">
+                                    <button class="layout-switch-btn active" data-offset="normal">Normal</button>
+                                    <button class="layout-switch-btn" data-offset="further">Further</button>
+                                </div>
                             </div>
                         </div>
                     </div>

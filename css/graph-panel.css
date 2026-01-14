@@ -7,14 +7,14 @@
     height: 380px;
     min-width: 350px;
     min-height: 280px;
-    background: rgba(22, 33, 62, 0.98);
-    border-radius: 8px;
+    background: var(--surface-primary);
+    border-radius: 2px;
     z-index: 1100;
     overflow: visible;
     display: none;
     flex-direction: column;
-    border: 1px solid #0f3460;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-lg);
 }
 
 .graph-panel.visible {
@@ -30,36 +30,36 @@
 }
 
 .graph-resize-handle:hover {
-    background: rgba(77, 166, 255, 0.3);
+    background: rgba(0, 0, 0, 0.08);
 }
 
 .graph-resize-handle.nw {
     top: -4px;
     left: -4px;
     cursor: nw-resize;
-    border-radius: 8px 0 0 0;
+    border-radius: 2px 0 0 0;
 }
 
 .graph-resize-handle.ne {
     top: -4px;
     right: -4px;
     cursor: ne-resize;
-    border-radius: 0 8px 0 0;
+    border-radius: 0 2px 0 0;
 }
 
 .graph-resize-handle.sw {
     bottom: -4px;
     left: -4px;
     cursor: sw-resize;
-    border-radius: 0 0 0 8px;
+    border-radius: 0 0 0 2px;
 }
 
 .graph-resize-handle.se {
     bottom: -4px;
     right: -4px;
     cursor: se-resize;
-    border-radius: 0 0 8px 0;
-    background: linear-gradient(135deg, transparent 40%, rgba(77, 166, 255, 0.5) 40%);
+    border-radius: 0 0 2px 0;
+    background: rgba(0, 0, 0, 0.1);
 }
 
 /* Edge resize handles */
@@ -105,122 +105,128 @@
     flex-direction: column;
     height: 100%;
     overflow: hidden;
-    border-radius: 8px;
+    border-radius: 2px;
 }
 
 .graph-header {
-    padding: 12px 16px;
-    border-bottom: 1px solid #0f3460;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-subtle);
     display: flex;
     align-items: center;
     gap: 12px;
     flex-shrink: 0;
     cursor: move;
     user-select: none;
+    background: var(--surface-primary);
 }
 
 .graph-header h4 {
     margin: 0;
-    font-size: 16px;
-    color: #4da6ff;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
     flex: 1;
 }
 
 .graph-close {
     background: none;
     border: none;
-    color: #888;
+    color: var(--text-tertiary);
     cursor: pointer;
-    font-size: 20px;
+    font-size: 18px;
     padding: 4px 8px;
     line-height: 1;
+    transition: color 0.1s;
 }
 
 .graph-close:hover {
-    color: #fff;
+    color: var(--text-primary);
 }
 
 .metric-tabs {
     display: flex;
-    gap: 6px;
-    padding: 12px 16px;
-    background: rgba(15, 52, 96, 0.3);
+    gap: 4px;
+    padding: 10px 14px;
+    background: var(--surface-secondary);
     flex-wrap: wrap;
     flex-shrink: 0;
+    border-bottom: 1px solid var(--border-subtle);
 }
 
 .metric-tab {
-    background: #0f3460;
-    border: 1px solid #1a4a7a;
-    color: #888;
-    padding: 6px 14px;
-    border-radius: 4px;
+    background: var(--surface-primary);
+    border: 1px solid var(--border-light);
+    color: var(--text-secondary);
+    padding: 5px 12px;
+    border-radius: 1px;
     cursor: pointer;
-    font-size: 12px;
-    transition: all 0.15s;
+    font-size: 11px;
+    transition: all 0.1s;
 }
 
 .metric-tab:hover {
-    color: #ccc;
-    border-color: #2a5a9a;
+    color: var(--text-primary);
+    background: var(--surface-tertiary);
 }
 
 .metric-tab.active {
-    background: #1a4a7a;
+    background: var(--accent-dark);
     color: #fff;
-    border-color: #4da6ff;
+    border-color: var(--accent-dark);
 }
 
 .graph-content {
-    padding: 20px;
+    padding: 16px;
     flex: 1;
     display: flex;
     flex-direction: column;
     min-height: 0;
+    background: var(--surface-primary);
 }
 
 .graph-current {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     flex-shrink: 0;
 }
 
 .graph-value {
-    font-size: 36px;
-    font-weight: bold;
-    color: #fff;
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--text-primary);
 }
 
 .graph-delta {
-    font-size: 14px;
-    padding: 4px 10px;
-    border-radius: 4px;
+    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 1px;
 }
 
 .graph-delta.positive {
-    color: #50c878;
-    background: rgba(80, 200, 120, 0.15);
+    color: var(--accent-success);
+    background: rgba(46, 125, 50, 0.1);
 }
 
 .graph-delta.negative {
-    color: #e94560;
-    background: rgba(233, 69, 96, 0.15);
+    color: var(--accent-error);
+    background: rgba(198, 40, 40, 0.1);
 }
 
 .graph-delta.neutral {
-    color: #888;
-    background: rgba(136, 136, 136, 0.15);
+    color: var(--text-tertiary);
+    background: var(--surface-secondary);
 }
 
 .graph-canvas-container {
     position: relative;
     flex: 1;
-    background: rgba(15, 52, 96, 0.3);
-    border-radius: 6px;
+    background: var(--surface-secondary);
+    border-radius: 1px;
     overflow: hidden;
     min-height: 150px;
+    border: 1px solid var(--border-subtle);
 }
 
 #graph-canvas {
@@ -229,9 +235,9 @@
 }
 
 .graph-label {
-    font-size: 12px;
-    color: #888;
-    margin-top: 10px;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 8px;
     text-align: center;
     flex-shrink: 0;
 }
@@ -239,8 +245,8 @@
 .graph-range {
     display: flex;
     justify-content: space-between;
-    font-size: 11px;
-    color: #666;
+    font-size: 10px;
+    color: var(--text-tertiary);
     margin-top: 6px;
     flex-shrink: 0;
 }
@@ -248,52 +254,53 @@
 .graph-window-control {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 20px;
-    background: rgba(15, 52, 96, 0.3);
-    border-top: 1px solid #0f3460;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--surface-secondary);
+    border-top: 1px solid var(--border-subtle);
     flex-shrink: 0;
 }
 
 .window-mode-toggle {
     display: flex;
-    background: #0f3460;
-    border-radius: 4px;
+    background: var(--surface-primary);
+    border-radius: 1px;
     overflow: hidden;
-    border: 1px solid #1a4a7a;
+    border: 1px solid var(--border-light);
 }
 
 .window-mode-btn {
     background: none;
     border: none;
-    color: #666;
+    color: var(--text-tertiary);
     padding: 4px 10px;
-    font-size: 11px;
+    font-size: 10px;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all 0.1s;
 }
 
 .window-mode-btn:hover {
-    color: #aaa;
+    color: var(--text-primary);
+    background: var(--surface-tertiary);
 }
 
 .window-mode-btn.active {
-    background: #1a4a7a;
+    background: var(--accent-dark);
     color: #fff;
 }
 
 .graph-window-control label {
-    font-size: 12px;
-    color: #888;
+    font-size: 11px;
+    color: var(--text-secondary);
 }
 
 #window-slider {
     flex: 1;
-    height: 6px;
+    height: 4px;
     -webkit-appearance: none;
     appearance: none;
-    background: linear-gradient(to right, #0f3460, #4da6ff);
-    border-radius: 3px;
+    background: var(--border-medium);
+    border-radius: 0;
     outline: none;
     cursor: pointer;
 }
@@ -301,12 +308,22 @@
 #window-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 16px;
-    height: 16px;
-    background: #fff;
-    border-radius: 50%;
+    width: 14px;
+    height: 14px;
+    background: var(--accent-dark);
+    border-radius: 1px;
     cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    box-shadow: var(--shadow-sm);
+}
+
+#window-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: var(--accent-dark);
+    border-radius: 1px;
+    cursor: pointer;
+    border: none;
+    box-shadow: var(--shadow-sm);
 }
 
 #window-slider:disabled {
@@ -318,24 +335,33 @@
     cursor: not-allowed;
 }
 
+#window-slider:disabled::-moz-range-thumb {
+    cursor: not-allowed;
+}
+
 .window-year-display {
-    font-size: 12px;
-    color: #4da6ff;
-    min-width: 140px;
+    font-size: 11px;
+    color: var(--text-primary);
+    font-weight: 500;
+    min-width: 130px;
     text-align: right;
 }
 
 .window-width-select {
-    background: #0f3460;
-    border: 1px solid #1a4a7a;
-    color: #4da6ff;
+    background: var(--surface-primary);
+    border: 1px solid var(--border-light);
+    color: var(--text-primary);
     padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
+    border-radius: 1px;
+    font-size: 11px;
     cursor: pointer;
+}
+
+.window-width-select:hover {
+    border-color: var(--border-medium);
 }
 
 .window-width-select:focus {
     outline: none;
-    border-color: #4da6ff;
+    border-color: var(--accent-dark);
 }

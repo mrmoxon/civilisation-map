@@ -1,6 +1,6 @@
 // Info panel - polity/city details display with location history
 import { state } from './state.js';
-import { formatYear, formatArea, formatPopulation, getPopulationForYear, pointInGeometry, getColor, calculateRiverLength, getRiverEndpoints, getRiverPolities, formatCoordinate, CITY_TERRITORY_TOLERANCE } from './utils.js';
+import { formatYear, formatArea, formatPopulation, getPopulationForYear, pointInGeometry, getColor, calculateRiverLength, getRiverEndpoints, getRiverPolities, getMarinePolities, formatCoordinate, CITY_TERRITORY_TOLERANCE } from './utils.js';
 
 // Cache for reverse geocoding results
 const geocodeCache = new Map();
@@ -63,6 +63,64 @@ async function updateModernLocation(lon, lat) {
     }
 }
 
+// Crosshair style definitions
+const crosshairStyles = {
+    cross: {
+        html: `<svg width="20" height="20" viewBox="0 0 20 20">
+            <line x1="10" y1="2" x2="10" y2="18" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <line x1="2" y1="10" x2="18" y2="10" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <line x1="10" y1="2" x2="10" y2="18" stroke="rgba(0,0,0,0.4)" stroke-width="1" stroke-linecap="round"/>
+            <line x1="2" y1="10" x2="18" y2="10" stroke="rgba(0,0,0,0.4)" stroke-width="1" stroke-linecap="round"/>
+        </svg>`,
+        size: [20, 20],
+        anchor: [10, 10]
+    },
+    crossThin: {
+        html: `<svg width="16" height="16" viewBox="0 0 16 16">
+            <line x1="8" y1="1" x2="8" y2="15" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="1" y1="8" x2="15" y2="8" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>`,
+        size: [16, 16],
+        anchor: [8, 8]
+    },
+    circle: {
+        html: `<svg width="14" height="14" viewBox="0 0 14 14">
+            <circle cx="7" cy="7" r="5" fill="rgba(255,255,255,0.4)" stroke="white" stroke-width="1.5"/>
+        </svg>`,
+        size: [14, 14],
+        anchor: [7, 7]
+    },
+    circleHollow: {
+        html: `<svg width="16" height="16" viewBox="0 0 16 16">
+            <circle cx="8" cy="8" r="6" fill="none" stroke="white" stroke-width="2"/>
+            <circle cx="8" cy="8" r="6" fill="none" stroke="rgba(0,0,0,0.3)" stroke-width="1"/>
+        </svg>`,
+        size: [16, 16],
+        anchor: [8, 8]
+    },
+    dot: {
+        html: `<svg width="10" height="10" viewBox="0 0 10 10">
+            <circle cx="5" cy="5" r="4" fill="white" stroke="rgba(0,0,0,0.3)" stroke-width="1"/>
+        </svg>`,
+        size: [10, 10],
+        anchor: [5, 5]
+    },
+    target: {
+        html: `<svg width="20" height="20" viewBox="0 0 20 20">
+            <circle cx="10" cy="10" r="8" fill="none" stroke="white" stroke-width="1.5"/>
+            <circle cx="10" cy="10" r="3" fill="white" stroke="none"/>
+            <circle cx="10" cy="10" r="8" fill="none" stroke="rgba(0,0,0,0.3)" stroke-width="0.5"/>
+        </svg>`,
+        size: [20, 20],
+        anchor: [10, 10]
+    }
+};
+
+// Get current crosshair style from state or default
+function getCrosshairStyle() {
+    return state.crosshairStyle || 'cross';
+}
+
 // Show crosshair marker at a location
 function showCrosshair(lon, lat) {
     // Remove existing crosshair
@@ -73,20 +131,25 @@ function showCrosshair(lon, lat) {
 
     if (!state.map) return;
 
-    // Create a custom crosshair icon
-    const crosshairIcon = L.divIcon({
+    const styleName = getCrosshairStyle();
+    const style = crosshairStyles[styleName] || crosshairStyles.cross;
+
+    const icon = L.divIcon({
+        html: style.html,
         className: 'crosshair-marker',
-        html: '<div class="crosshair-icon">+</div>',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
+        iconSize: style.size,
+        iconAnchor: style.anchor
     });
 
     state.crosshairMarker = L.marker([lat, lon], {
-        icon: crosshairIcon,
+        icon: icon,
         interactive: false,
         zIndexOffset: 1000
     }).addTo(state.map);
 }
+
+// Expose crosshair styles for settings
+window.crosshairStyles = crosshairStyles;
 
 // Remove crosshair marker
 function hideCrosshair() {
@@ -177,7 +240,7 @@ function renderCityPanel(city, year, containingPolity, options = {}) {
 
 // Render territory panel (expanded or collapsed)
 function renderTerritoryPanel(polity, year, options = {}) {
-    const { expanded = false, showActions = false, actionButtonsHtml = '', componentId = 'territory' } = options;
+    const { expanded = false, showActions = false, actionButtonsHtml = '', componentId = 'territory', coords = null, visiblePolities = [] } = options;
 
     const expandedClass = expanded ? 'expanded' : '';
     const expandBtn = !expanded ? `<button class="panel-expand-btn" data-component="${componentId}">▼</button>` : '';
@@ -256,14 +319,49 @@ function renderTerritoryPanel(polity, year, options = {}) {
         }
         html += '</div>';
     } else {
-        // Unclaimed territory
+        // Unclaimed territory - check if it's a marine area (ocean, sea, etc.)
+        let marineArea = null;
+        if (coords && window.getMarineAreaAtPoint) {
+            marineArea = window.getMarineAreaAtPoint(coords[0], coords[1]);
+        }
+
         html += '<div class="stacked-header">';
         if (showActions) html += actionButtonsHtml;
-        html += '<h3 class="stacked-name">Unclaimed Territory</h3>';
-        html += `<div class="stacked-subtitle">${formatYear(year)}</div>`;
+        if (marineArea) {
+            html += `<h3 class="stacked-name">${marineArea.name}</h3>`;
+            const typeLabel = marineArea.type.charAt(0).toUpperCase() + marineArea.type.slice(1);
+            html += `<div class="stacked-subtitle">${formatYear(year)} · ${typeLabel}</div>`;
+        } else {
+            html += '<h3 class="stacked-name">Unclaimed Territory</h3>';
+            html += `<div class="stacked-subtitle">${formatYear(year)}</div>`;
+        }
         html += '</div>';
         html += '<div class="stacked-content">';
-        html += '<p class="info-status" style="margin:0">No empire controls this location</p>';
+        if (marineArea) {
+            // Find neighboring civilizations
+            let neighboringPolities = [];
+            if (marineArea.geometry && visiblePolities.length > 0) {
+                neighboringPolities = getMarinePolities(marineArea.geometry, visiblePolities);
+            }
+
+            if (neighboringPolities.length > 0) {
+                html += '<div class="info-section">';
+                html += `<div class="info-section-title">Bordering Civilizations (${neighboringPolities.length})</div>`;
+                html += '<div class="info-polity-list">';
+                for (const pol of neighboringPolities) {
+                    html += `<div class="info-polity-item" data-name="${pol.name}">`;
+                    html += `<span class="polity-marker" style="background: ${pol.color}"></span>`;
+                    html += `<span class="polity-name">${pol.name}</span>`;
+                    html += '</div>';
+                }
+                html += '</div>';
+                html += '</div>';
+            } else {
+                html += '<p class="info-status" style="margin:0">International waters</p>';
+            }
+        } else {
+            html += '<p class="info-status" style="margin:0">No empire controls this location</p>';
+        }
         html += '</div>';
     }
 
@@ -333,16 +431,19 @@ function renderRiverPanel(river, connectedFeatures, year, visiblePolities, optio
             html += '</div>';
         }
 
+        html += '<div class="info-section">';
         if (riverPolities.length > 0) {
-            html += '<div class="info-section">';
             html += `<div class="info-section-title">Empires (${riverPolities.length})</div>`;
             html += '<div class="info-polities-list">';
             for (const pol of riverPolities) {
                 html += `<div class="info-polity-item" data-name="${pol.name}"><span class="polity-marker" style="background: ${pol.color}"></span><span class="polity-name">${pol.name}</span></div>`;
             }
             html += '</div>';
-            html += '</div>';
+        } else {
+            html += '<div class="info-section-title">Empires</div>';
+            html += '<p class="info-empty-state">No civilizations control this river</p>';
         }
+        html += '</div>';
     }
 
     html += '</div>';
@@ -465,7 +566,7 @@ function getLocationHistory(lon, lat) {
 }
 
 // Render the info panel content
-function renderInfoPanel() {
+export function renderInfoPanel() {
     if (!state.selectedLocation) return;
 
     const panel = document.getElementById('info-panel');
@@ -589,7 +690,9 @@ function renderInfoPanel() {
                 expanded: territoryExpanded,
                 showActions: isFirstPanel,
                 actionButtonsHtml: isFirstPanel ? actionButtonsHtml : '',
-                componentId: 'territory'
+                componentId: 'territory',
+                coords: [lon, lat],
+                visiblePolities: visiblePolities
             });
             isFirstPanel = false;
         }
@@ -688,6 +791,12 @@ function renderInfoPanel() {
         const [lon, lat] = state.selectedLocation.coords;
         const polity = getPolityAtPoint(lon, lat, year);
 
+        // Get visible polities for marine neighbor detection
+        const visiblePolities = state.allPolities.filter(f => {
+            const props = f.properties;
+            return year >= props.FromYear && year <= props.ToYear;
+        });
+
         locationHistory = getLocationHistory(lon, lat);
 
         panel.className = 'info-panel compound' + (state.infoPanelPinned ? ' pinned' : '');
@@ -721,12 +830,20 @@ function renderInfoPanel() {
             const lastPolity = pastPolities[pastPolities.length - 1];
             const pastHistoryFiltered = locationHistory.filter(h => h.fromYear <= year);
 
+            // Check if this is a marine area
+            let marineArea = null;
+            if (window.getMarineAreaAtPoint) {
+                marineArea = window.getMarineAreaAtPoint(lon, lat);
+            }
+
             state.currentInfoData = {
-                type: 'unclaimed',
+                type: marineArea ? 'marine' : 'unclaimed',
                 currentYear: year,
                 coords: [lon, lat],
                 lastPolity: lastPolity,
-                history: pastHistoryFiltered
+                history: pastHistoryFiltered,
+                marineName: marineArea?.name,
+                marineType: marineArea?.type
             };
         }
 
@@ -746,7 +863,9 @@ function renderInfoPanel() {
         mainContent += renderTerritoryPanel(polity, year, {
             expanded: true,
             showActions: true,
-            actionButtonsHtml
+            actionButtonsHtml,
+            coords: [lon, lat],
+            visiblePolities: visiblePolities
         });
     }
 
@@ -805,7 +924,7 @@ function renderInfoPanel() {
 
         // Build the history content
         const historyContent = `
-            ${previouslyHtml}
+            ${state.historyExpanded ? '' : previouslyHtml}
             <div class="info-history ${expandedClass}">
                 <div class="info-history-header" id="history-toggle">
                     <span class="info-section-title">Location History</span>
@@ -877,7 +996,7 @@ function renderInfoPanel() {
             e.stopPropagation();
             const fromYear = parseInt(item.dataset.from);
             const empireName = item.querySelector('.history-name')?.textContent || 'Unknown';
-            const empireColor = item.querySelector('.history-marker')?.style.background || '#4da6ff';
+            const empireColor = item.querySelector('.history-marker')?.style.background || '#888888';
             jumpToYear(fromYear, { empireName, empireColor });
         });
     });
@@ -889,7 +1008,7 @@ function renderInfoPanel() {
             e.stopPropagation();
             const fromYear = parseInt(previouslySection.dataset.from);
             const empireName = previouslySection.querySelector('.previously-name')?.textContent || 'Unknown';
-            const empireColor = previouslySection.querySelector('.previously-marker')?.style.background || '#4da6ff';
+            const empireColor = previouslySection.querySelector('.previously-marker')?.style.background || '#888888';
             jumpToYear(fromYear, { empireName, empireColor });
         });
     }
@@ -917,7 +1036,7 @@ function renderInfoPanel() {
         });
     });
 
-    // Add event listeners for polity items in river panel (click to navigate)
+    // Add event listeners for polity items (river/ocean neighbors - click to navigate with history)
     document.querySelectorAll('.info-polity-item').forEach(item => {
         item.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -939,7 +1058,32 @@ function renderInfoPanel() {
                 if (coords) {
                     const lon = coords.reduce((sum, c) => sum + c[0], 0) / coords.length;
                     const lat = coords.reduce((sum, c) => sum + c[1], 0) / coords.length;
-                    state.map.setView([lat, lon], Math.max(state.map.getZoom(), 5));
+
+                    // Save current location to history (like leaderboard navigation)
+                    const currentCenter = state.map.getCenter();
+                    const currentZoom = state.map.getZoom();
+
+                    if (state.locationHistory.length === 0) {
+                        state.locationHistory.push({
+                            coords: [currentCenter.lat, currentCenter.lng],
+                            zoom: currentZoom,
+                            territoryName: 'Starting point',
+                            territoryColor: '#888'
+                        });
+                    }
+
+                    // Push new location to history
+                    state.locationHistory.push({
+                        coords: [lat, lon],
+                        zoom: currentZoom,
+                        territoryName: polityName,
+                        territoryColor: getColor(polityName)
+                    });
+
+                    // Navigate to polity and show info
+                    state.map.setView([lat, lon], currentZoom);
+                    showPointInfo(lon, lat);
+                    showLocationJumpIndicator();
                 }
             }
         });
@@ -1047,10 +1191,34 @@ function jumpToYear(year, jumpInfo = null) {
     const timeline = document.getElementById('timeline');
     timeline.value = year;
 
+    // Track timeline jump BEFORE calling updateMapWithGraph (which would clear the history)
+    if (jumpInfo) {
+        // If this is the first navigation, save the starting point first
+        if (state.timelineHistory.length === 0) {
+            state.timelineHistory.push({
+                year: previousYear,
+                empireName: 'Starting point',
+                empireColor: '#888'
+            });
+        }
+
+        // Push the NEW year we're navigating TO
+        state.timelineHistory.push({
+            year: year,
+            empireName: jumpInfo.empireName,
+            empireColor: jumpInfo.empireColor
+        });
+    }
+
+    // Set flag to prevent updateMapWithGraph from clearing history
+    state._isHistoryJump = !!jumpInfo;
+
     // Trigger the map update
     if (window.updateMapWithGraph) {
         window.updateMapWithGraph(year);
     }
+
+    state._isHistoryJump = false;
 
     // Update year input
     const input = document.getElementById('year-input');
@@ -1063,14 +1231,8 @@ function jumpToYear(year, jumpInfo = null) {
         select.value = 'ce';
     }
 
-    // Track timeline jump if this is from location history
+    // Show the indicator after everything is set up
     if (jumpInfo) {
-        state.timelineJump = {
-            fromYear: previousYear,
-            toYear: year,
-            empireName: jumpInfo.empireName,
-            empireColor: jumpInfo.empireColor
-        };
         showTimelineJumpIndicator();
     }
 }
@@ -1087,43 +1249,84 @@ function showTimelineJumpIndicator() {
         document.body.appendChild(indicator);
     }
 
-    const jump = state.timelineJump;
-    if (!jump) {
+    const history = state.timelineHistory;
+    if (!history || history.length === 0) {
         indicator.classList.remove('visible');
         return;
     }
 
+    // Get the previous time period (the one we'll return to)
+    const previous = history.length > 1 ? history[history.length - 2] : null;
+    // Steps back = history length minus 1 (the starting point doesn't count as a step)
+    const stepsBack = history.length - 1;
+
     indicator.innerHTML = `
-        <div class="jump-indicator-content">
-            <div class="jump-indicator-marker" style="background: ${jump.empireColor}"></div>
-            <div class="jump-indicator-text">
-                <span class="jump-indicator-label">Viewing</span>
-                <span class="jump-indicator-empire">${jump.empireName}</span>
-            </div>
-            <button class="jump-indicator-return" title="Return to ${formatYear(jump.fromYear)}">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+        <div class="jump-indicator-wrapper">
+            <button class="jump-indicator-back" title="Return to previous time">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 12a9 9 0 1 0 9-9M3 12l4-4M3 12l4 4"/>
                 </svg>
-                Return
+                Back${stepsBack > 1 ? ` (${stepsBack})` : ''}
             </button>
-            <button class="jump-indicator-close" title="Dismiss">×</button>
+            ${previous ? `
+            <div class="jump-indicator-destination">
+                <div class="jump-indicator-marker" style="background: ${previous.empireColor}"></div>
+                <span class="jump-indicator-text">${previous.empireName.length > 20 ? previous.empireName.slice(0, 20) + '…' : previous.empireName}</span>
+                <button class="jump-indicator-close" title="Clear history">×</button>
+            </div>
+            ` : ''}
         </div>
     `;
 
     // Add event listeners
-    indicator.querySelector('.jump-indicator-return').addEventListener('click', () => {
-        const returnYear = state.timelineJump?.fromYear;
-        state.timelineJump = null;
-        hideTimelineJumpIndicator();
-        if (returnYear !== undefined) {
-            jumpToYear(returnYear);
+    indicator.querySelector('.jump-indicator-back').addEventListener('click', () => {
+        if (state.timelineHistory.length > 1) {
+            // Pop the current time period off the stack
+            state.timelineHistory.pop();
+
+            // Navigate to the previous time period (now the last item)
+            const previous = state.timelineHistory[state.timelineHistory.length - 1];
+
+            // Jump to that year without adding to history
+            const timeline = document.getElementById('timeline');
+            timeline.value = previous.year;
+
+            // Set flag to prevent updateMapWithGraph from clearing history
+            state._isHistoryJump = true;
+            if (window.updateMapWithGraph) {
+                window.updateMapWithGraph(previous.year);
+            }
+            state._isHistoryJump = false;
+
+            // Update year input
+            const input = document.getElementById('year-input');
+            const select = document.getElementById('era-select');
+            if (previous.year < 0) {
+                input.value = Math.abs(previous.year);
+                select.value = 'bce';
+            } else {
+                input.value = previous.year;
+                select.value = 'ce';
+            }
+
+            // If we're back at the starting point (only 1 item left), clear history
+            if (state.timelineHistory.length === 1) {
+                state.timelineHistory = [];
+                hideTimelineJumpIndicator();
+            } else {
+                // Update the indicator to show new current
+                showTimelineJumpIndicator();
+            }
         }
     });
 
-    indicator.querySelector('.jump-indicator-close').addEventListener('click', () => {
-        state.timelineJump = null;
-        hideTimelineJumpIndicator();
-    });
+    const closeBtn = indicator.querySelector('.jump-indicator-close');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            state.timelineHistory = [];
+            hideTimelineJumpIndicator();
+        });
+    }
 
     // Show with animation
     requestAnimationFrame(() => {
@@ -1157,30 +1360,31 @@ function showLocationJumpIndicator() {
         return;
     }
 
-    // Get the current location (last in history) for display
-    const current = history[history.length - 1];
+    // Get the previous location (the one we'll return to)
+    const previous = history.length > 1 ? history[history.length - 2] : null;
     // Steps back = history length minus 1 (the starting point doesn't count as a step)
     const stepsBack = history.length - 1;
 
     indicator.innerHTML = `
-        <div class="jump-indicator-content">
-            <div class="jump-indicator-marker" style="background: ${current.territoryColor}"></div>
-            <div class="jump-indicator-text">
-                <span class="jump-indicator-label">Viewing</span>
-                <span class="jump-indicator-empire">${current.territoryName}</span>
-            </div>
-            <button class="jump-indicator-return" title="Return to previous location">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+        <div class="jump-indicator-wrapper">
+            <button class="jump-indicator-back" title="Return to previous location">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 12a9 9 0 1 0 9-9M3 12l4-4M3 12l4 4"/>
                 </svg>
                 Back${stepsBack > 1 ? ` (${stepsBack})` : ''}
             </button>
-            <button class="jump-indicator-close" title="Clear history">×</button>
+            ${previous ? `
+            <div class="jump-indicator-destination">
+                <div class="jump-indicator-marker" style="background: ${previous.territoryColor}"></div>
+                <span class="jump-indicator-text">${previous.territoryName.length > 20 ? previous.territoryName.slice(0, 20) + '…' : previous.territoryName}</span>
+                <button class="jump-indicator-close" title="Clear history">×</button>
+            </div>
+            ` : ''}
         </div>
     `;
 
     // Add event listeners
-    indicator.querySelector('.jump-indicator-return').addEventListener('click', () => {
+    indicator.querySelector('.jump-indicator-back').addEventListener('click', () => {
         if (state.locationHistory.length > 1) {
             // Pop the current location off the stack
             state.locationHistory.pop();
@@ -1200,10 +1404,13 @@ function showLocationJumpIndicator() {
         }
     });
 
-    indicator.querySelector('.jump-indicator-close').addEventListener('click', () => {
-        state.locationHistory = [];
-        hideLocationJumpIndicator();
-    });
+    const closeBtn = indicator.querySelector('.jump-indicator-close');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            state.locationHistory = [];
+            hideLocationJumpIndicator();
+        });
+    }
 
     // Show with animation
     requestAnimationFrame(() => {
@@ -1436,6 +1643,11 @@ export function unpinInfoPanel() {
         state.selectedPolityLayer = null;
     }
 
+    // Reset ocean highlighting
+    if (window.resetOceanSelection) {
+        window.resetOceanSelection();
+    }
+
     state.infoPanelPinned = false;
     state.selectedLocation = null;
     state.selectedCity = null;
@@ -1503,6 +1715,11 @@ export function copyInfoToClipboard() {
         if (data.containingPolity) {
             text += `- Controlling empire: ${data.containingPolity}\n`;
         }
+    } else if (data.type === 'marine') {
+        const typeLabel = data.marineType ? data.marineType.charAt(0).toUpperCase() + data.marineType.slice(1) : 'Water';
+        text = `I'm looking at the ${data.marineName} (${typeLabel}) in the year ${formatYear(data.currentYear)}.\n\n`;
+        text += `LOCATION: ${data.coords[1].toFixed(4)}°, ${data.coords[0].toFixed(4)}°\n`;
+        text += `International waters\n`;
     } else if (data.type === 'unclaimed') {
         text = `I'm looking at an unclaimed territory in the year ${formatYear(data.currentYear)}.\n\n`;
         text += `LOCATION: ${data.coords[1].toFixed(4)}°, ${data.coords[0].toFixed(4)}°\n`;

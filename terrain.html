@@ -14,8 +14,8 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #1a1a2e;
-            color: #eee;
+            background: #E8E8E8;
+            color: #1A1A1A;
         }
 
         #map {
@@ -37,8 +37,8 @@
         }
 
         .controls-tab {
-            background: #16213e;
-            border-top: 1px solid #0f3460;
+            background: #FAFAFA;
+            border-top: 1px solid rgba(0, 0, 0, 0.08);
             padding: 8px 20px;
             cursor: pointer;
             display: flex;
@@ -48,12 +48,13 @@
         }
 
         .controls-tab:hover {
-            background: #1a2a4e;
+            background: #F5F5F5;
         }
 
         .controls-tab h2 {
             font-size: 14px;
-            color: #e94560;
+            color: #1A1A1A;
+            font-weight: 600;
             margin: 0;
             display: flex;
             align-items: center;
@@ -62,7 +63,7 @@
 
         .controls-tab .toggle-icon {
             font-size: 10px;
-            color: #4da6ff;
+            color: #666666;
             transition: transform 0.3s ease;
         }
 
@@ -71,12 +72,12 @@
         }
 
         .controls {
-            background: #16213e;
+            background: #FAFAFA;
             padding: 15px 20px;
             display: flex;
             gap: 30px;
             overflow-x: auto;
-            border-top: 1px solid #0f3460;
+            border-top: 1px solid rgba(0, 0, 0, 0.06);
         }
 
         .control-section {
@@ -88,7 +89,7 @@
 
         .control-section-title {
             font-size: 11px;
-            color: #4da6ff;
+            color: #666666;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 4px;
@@ -109,7 +110,7 @@
 
         .control-group label {
             font-size: 11px;
-            color: #888;
+            color: #666666;
             white-space: nowrap;
         }
 
@@ -121,11 +122,11 @@
         }
 
         .basemap-btn {
-            background: #0f3460;
+            background: #F5F5F5;
             border: 2px solid transparent;
-            color: #aaa;
+            color: #666666;
             padding: 6px 8px;
-            border-radius: 4px;
+            border-radius: 2px;
             cursor: pointer;
             font-size: 11px;
             transition: all 0.2s;
@@ -133,51 +134,56 @@
         }
 
         .basemap-btn:hover {
-            border-color: #4da6ff;
-            color: #fff;
+            border-color: rgba(0, 0, 0, 0.12);
+            color: #1A1A1A;
         }
 
         .basemap-btn.active {
-            border-color: #e94560;
-            color: #fff;
-            background: #1a3a5c;
+            border-color: #2D2D2D;
+            color: #1A1A1A;
+            background: #EFEFEF;
         }
 
         .basemap-btn .preview {
             width: 100%;
             height: 30px;
-            border-radius: 2px;
+            border-radius: 1px;
             margin-bottom: 4px;
             background-size: cover;
             background-position: center;
         }
 
         .toggle-btn {
-            background: #0f3460;
-            border: 1px solid #4da6ff;
-            color: #4da6ff;
+            background: #F5F5F5;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            color: #666666;
             padding: 6px 14px;
-            border-radius: 4px;
+            border-radius: 1px;
             cursor: pointer;
             font-size: 13px;
             transition: all 0.2s;
         }
 
         .toggle-btn.active {
-            background: #4da6ff;
-            color: #16213e;
+            background: #2D2D2D;
+            color: #fff;
+            border-color: #2D2D2D;
         }
 
         .toggle-btn:hover {
-            opacity: 0.85;
+            background: #EFEFEF;
+        }
+
+        .toggle-btn.active:hover {
+            background: #3D3D3D;
         }
 
         input[type="range"] {
             width: 120px;
-            height: 6px;
+            height: 4px;
             -webkit-appearance: none;
-            background: #0f3460;
-            border-radius: 3px;
+            background: rgba(0, 0, 0, 0.12);
+            border-radius: 0;
             outline: none;
         }
 
@@ -185,29 +191,30 @@
             -webkit-appearance: none;
             width: 14px;
             height: 14px;
-            background: #4da6ff;
-            border-radius: 50%;
+            background: #2D2D2D;
+            border-radius: 1px;
             cursor: pointer;
         }
 
         select {
-            background: #0f3460;
-            border: 1px solid #1a4a7a;
-            color: #4da6ff;
+            background: #FAFAFA;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            color: #1A1A1A;
             padding: 6px 10px;
-            border-radius: 4px;
+            border-radius: 1px;
             font-size: 12px;
             cursor: pointer;
         }
 
         select:focus {
             outline: none;
-            border-color: #4da6ff;
+            border-color: #2D2D2D;
         }
 
         .value-display {
             font-size: 12px;
-            color: #4da6ff;
+            color: #1A1A1A;
+            font-weight: 500;
             min-width: 40px;
         }
 
@@ -219,30 +226,31 @@
         .color-preset {
             width: 60px;
             height: 20px;
-            border-radius: 3px;
+            border-radius: 1px;
             cursor: pointer;
             border: 2px solid transparent;
             transition: border-color 0.2s;
         }
 
         .color-preset:hover {
-            border-color: #fff;
+            border-color: #2D2D2D;
         }
 
         .color-preset.active {
-            border-color: #e94560;
+            border-color: #2D2D2D;
         }
 
         .elevation-info {
             position: fixed;
             bottom: 50px;
             left: 10px;
-            background: rgba(22, 33, 62, 0.95);
+            background: rgba(250, 250, 250, 0.95);
             padding: 8px 12px;
-            border-radius: 6px;
+            border-radius: 2px;
             font-size: 12px;
             z-index: 999;
             transition: bottom 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
         }
 
         .controls-wrapper:not(.collapsed) ~ .elevation-info,
@@ -251,18 +259,20 @@
         }
 
         .elevation-info strong {
-            color: #4da6ff;
+            color: #1A1A1A;
+            font-weight: 600;
         }
 
         .legend {
             position: fixed;
             bottom: 50px;
             right: 10px;
-            background: rgba(22, 33, 62, 0.95);
+            background: rgba(250, 250, 250, 0.95);
             padding: 8px 10px;
-            border-radius: 6px;
+            border-radius: 2px;
             z-index: 999;
             transition: bottom 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
         }
 
         .controls-wrapper:not(.collapsed) ~ .legend,
@@ -272,21 +282,21 @@
 
         .legend-title {
             font-size: 11px;
-            color: #888;
+            color: #999999;
             margin-bottom: 6px;
         }
 
         .legend-bar {
             width: 150px;
             height: 12px;
-            border-radius: 2px;
+            border-radius: 1px;
         }
 
         .legend-labels {
             display: flex;
             justify-content: space-between;
             font-size: 10px;
-            color: #666;
+            color: #999999;
             margin-top: 4px;
         }
 

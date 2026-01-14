@@ -1,8 +1,8 @@
 // Terrain visualization module
 // Elevation, hillshade, rivers, coastlines layers
 import { state } from './state.js';
-import { showCompoundInfo, pinInfoPanel, hideInfo } from './info-panel.js';
-import { findCityAtPoint } from './utils.js';
+import { showCompoundInfo, pinInfoPanel, hideInfo, showPointInfo, unpinInfoPanel, renderInfoPanel } from './info-panel.js';
+import { findCityAtPoint, pointInGeometry } from './utils.js';
 
 // Base map definitions (all without political labels/borders)
 const baseMaps = {
@@ -111,6 +111,16 @@ export const terrainState = {
     terrainIntensity: 2.0,
 
     allRiversData: null,
+    marineData: null,
+    oceansLayer: null,
+    showOceans: false,
+    oceanFill: true,
+    oceanOpacity: 0.4,
+    oceanLineWeight: 1,
+    oceanLineColor: '#0a2840',
+    oceanPalette: 'blue',
+    oceanTooltips: true,
+    selectedOceanLayer: null,
     coastlinesData: null,
     coastlinesDetailedData: null,
     coastlinesStandardData: null,
@@ -678,7 +688,7 @@ export function updateRiversLayer() {
                             if (layer.cityData && layer.cityData.city === city) {
                                 layer.cityData.visualMarker.setStyle({
                                     weight: 3,
-                                    color: '#4da6ff',
+                                    color: '#2D2D2D',
                                     fillOpacity: 0.9
                                 });
                             }
@@ -691,6 +701,9 @@ export function updateRiversLayer() {
                     if (state.selectedPolityLayer && state.polityLayer) {
                         state.polityLayer.resetStyle(state.selectedPolityLayer);
                     }
+
+                    // Reset previously selected ocean
+                    resetOceanSelection();
 
                     // Highlight the territory at click location
                     if (window.highlightPolityAt) {
@@ -762,6 +775,27 @@ export function resetRiverSelection() {
 
 // Expose globally for cross-module access
 window.resetRiverSelection = resetRiverSelection;
+
+// Reset ocean selection highlighting (called when info panel is closed or clicking elsewhere)
+export function resetOceanSelection() {
+    if (terrainState.selectedOceanLayer && terrainState.oceansLayer) {
+        const palette = oceanPalettes[terrainState.oceanPalette] || oceanPalettes.blue;
+        const feature = terrainState.selectedOceanLayer.feature;
+        const featureType = feature.properties.featurecla || 'generic';
+        const color = palette[featureType] || palette.generic;
+        terrainState.selectedOceanLayer.setStyle({
+            fillColor: color,
+            fillOpacity: terrainState.oceanFill ? terrainState.oceanOpacity : 0,
+            color: terrainState.oceanLineColor,
+            weight: terrainState.oceanLineWeight,
+            opacity: terrainState.oceanLineWeight > 0 ? 0.9 : 0
+        });
+        terrainState.selectedOceanLayer = null;
+    }
+}
+
+// Expose globally for cross-module access
+window.resetOceanSelection = resetOceanSelection;
 
 // Update coastline styles without recreating the layer
 function updateCoastlinesStyle() {
@@ -899,6 +933,234 @@ export function bringDataLayersToFront() {
 // Expose globally for cross-module access
 window.bringDataLayersToFront = bringDataLayersToFront;
 
+// Find the marine area (ocean, sea, gulf, etc.) at a given point
+function getMarineAreaAtPoint(lon, lat) {
+    if (!terrainState.marineData?.features) return null;
+
+    for (const feature of terrainState.marineData.features) {
+        if (pointInGeometry(lon, lat, feature.geometry)) {
+            return {
+                name: feature.properties.name,
+                type: feature.properties.featurecla,
+                geometry: feature.geometry  // Include geometry for neighbor detection
+            };
+        }
+    }
+    return null;
+}
+
+// Expose globally for cross-module access
+window.getMarineAreaAtPoint = getMarineAreaAtPoint;
+
+// Color palettes for marine feature types
+const oceanPalettes = {
+    blue: {
+        ocean: '#1a4b6e', sea: '#2d6a8a', gulf: '#3d7a9a', bay: '#4d8aaa',
+        strait: '#3d7090', sound: '#4d80a0', channel: '#3d7090', lagoon: '#5d90b0',
+        fjord: '#4d7a8a', generic: '#3d6a7a', river: '#2d5a6a', reef: '#4d8090', inlet: '#4d7a8a'
+    },
+    deep: {
+        ocean: '#0a1628', sea: '#0f2438', gulf: '#143248', bay: '#1a4058',
+        strait: '#1f4e68', sound: '#245c78', channel: '#296a88', lagoon: '#2e7898',
+        fjord: '#122a40', generic: '#0d2030', river: '#081820', reef: '#1f4a5a', inlet: '#1a3c4c'
+    },
+    teal: {
+        ocean: '#0d4a4a', sea: '#1a6060', gulf: '#2a7070', bay: '#3a8080',
+        strait: '#4a9090', sound: '#5aa0a0', channel: '#6ab0b0', lagoon: '#7ac0c0',
+        fjord: '#2a6060', generic: '#1a5050', river: '#0d4040', reef: '#5a9090', inlet: '#4a8080'
+    },
+    navy: {
+        ocean: '#0a1830', sea: '#102040', gulf: '#162850', bay: '#1c3060',
+        strait: '#223870', sound: '#284080', channel: '#2e4890', lagoon: '#3450a0',
+        fjord: '#142040', generic: '#101830', river: '#0a1020', reef: '#284070', inlet: '#203060'
+    },
+    arctic: {
+        ocean: '#3a5a6a', sea: '#4a6a7a', gulf: '#5a7a8a', bay: '#6a8a9a',
+        strait: '#7a9aaa', sound: '#8aaaba', channel: '#9abaca', lagoon: '#aacada',
+        fjord: '#5a7080', generic: '#4a6070', river: '#3a5060', reef: '#7a9aa0', inlet: '#6a8a90'
+    },
+    warm: {
+        ocean: '#4a3020', sea: '#5a4030', gulf: '#6a5040', bay: '#7a6050',
+        strait: '#8a7060', sound: '#9a8070', channel: '#aa9080', lagoon: '#baa090',
+        fjord: '#5a4030', generic: '#4a3525', river: '#3a2515', reef: '#7a6555', inlet: '#6a5545'
+    },
+    mono: {
+        ocean: '#2a2a2a', sea: '#3a3a3a', gulf: '#4a4a4a', bay: '#5a5a5a',
+        strait: '#6a6a6a', sound: '#7a7a7a', channel: '#8a8a8a', lagoon: '#9a9a9a',
+        fjord: '#4a4a4a', generic: '#3a3a3a', river: '#2a2a2a', reef: '#6a6a6a', inlet: '#5a5a5a'
+    }
+};
+
+// Render oceans layer showing all marine areas with distinct colors
+function renderOceansLayer() {
+    // Remove existing layer and clear selection
+    if (terrainState.oceansLayer) {
+        state.map.removeLayer(terrainState.oceansLayer);
+        terrainState.oceansLayer = null;
+    }
+    terrainState.selectedOceanLayer = null;
+
+    if (!terrainState.showOceans || !terrainState.marineData?.features) return;
+
+    const palette = oceanPalettes[terrainState.oceanPalette] || oceanPalettes.blue;
+
+    const styleFunc = (feature) => {
+        const featureType = feature.properties.featurecla || 'generic';
+        const color = palette[featureType] || palette.generic;
+        return {
+            fillColor: color,
+            fillOpacity: terrainState.oceanFill ? terrainState.oceanOpacity : 0,
+            color: terrainState.oceanLineColor,
+            weight: terrainState.oceanLineWeight,
+            opacity: terrainState.oceanLineWeight > 0 ? 0.9 : 0
+        };
+    };
+
+    // Highlight style for selected ocean
+    const highlightStyle = (feature) => {
+        const featureType = feature.properties.featurecla || 'generic';
+        const baseColor = palette[featureType] || palette.generic;
+        // Lighten the fill color for selection
+        const highlightFill = lightenColor(baseColor, 0.3);
+        return {
+            fillColor: highlightFill,
+            fillOpacity: terrainState.oceanFill ? Math.min(terrainState.oceanOpacity + 0.15, 0.8) : 0,
+            color: '#60a0d0',  // Bright blue edge
+            weight: 2.5,
+            opacity: 1
+        };
+    };
+
+    // Helper to lighten a hex color
+    function lightenColor(hex, amount) {
+        const num = parseInt(hex.replace('#', ''), 16);
+        const r = Math.min(255, ((num >> 16) & 0xff) + Math.round(255 * amount));
+        const g = Math.min(255, ((num >> 8) & 0xff) + Math.round(255 * amount));
+        const b = Math.min(255, (num & 0xff) + Math.round(255 * amount));
+        return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+    }
+
+    terrainState.oceansLayer = L.geoJSON(terrainState.marineData, {
+        style: styleFunc,
+        interactive: terrainState.oceanTooltips,
+        onEachFeature: (feature, layer) => {
+            if (terrainState.oceanTooltips) {
+                const name = feature.properties.name || 'Unknown';
+                const type = feature.properties.featurecla || 'water';
+                const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+                layer.bindTooltip(`${name} (${typeLabel})`, {
+                    sticky: true,
+                    className: 'ocean-tooltip'
+                });
+            }
+
+            // Hover effect - show info panel and subtle highlight
+            layer.on('mouseover', (e) => {
+                // Set hover priority to prevent territory hover from overriding
+                state.hoverPriority = 'ocean';
+
+                if (terrainState.selectedOceanLayer !== layer) {
+                    layer.setStyle({
+                        ...styleFunc(feature),
+                        weight: 1.5,
+                        color: '#4080b0'
+                    });
+                    layer.bringToFront();
+                    // Keep selected layer on top
+                    if (terrainState.selectedOceanLayer) {
+                        terrainState.selectedOceanLayer.bringToFront();
+                    }
+                }
+
+                // Show hover info in panel (if not pinned and hover enabled)
+                if (!state.infoPanelPinned && terrainState.oceanTooltips) {
+                    const lon = e.latlng.lng;
+                    const lat = e.latlng.lat;
+                    state.selectedLocation = {
+                        type: 'point',
+                        coords: [lon, lat],
+                        isHover: true
+                    };
+                    renderInfoPanel();
+                }
+            });
+
+            layer.on('mouseout', () => {
+                // Clear hover priority
+                if (state.hoverPriority === 'ocean') {
+                    state.hoverPriority = null;
+                }
+
+                if (terrainState.selectedOceanLayer !== layer) {
+                    layer.setStyle(styleFunc(feature));
+                }
+
+                // Hide info panel if not pinned (hover was showing it)
+                if (!state.infoPanelPinned) {
+                    hideInfo();
+                }
+            });
+
+            layer.on('click', (e) => {
+                // Mark event as handled to prevent map click from overriding
+                e.originalEvent._oceanHandled = true;
+
+                const lon = e.latlng.lng;
+                const lat = e.latlng.lat;
+
+                // Reset previously selected ocean visual
+                if (terrainState.selectedOceanLayer && terrainState.selectedOceanLayer !== layer) {
+                    const prevFeature = terrainState.selectedOceanLayer.feature;
+                    terrainState.selectedOceanLayer.setStyle(styleFunc(prevFeature));
+                }
+
+                // Reset other selections (city, river, polity)
+                if (state.selectedCity && window.resetCitySelection) {
+                    window.resetCitySelection();
+                }
+                if (state.selectedRiverSystem && window.resetRiverSelection) {
+                    window.resetRiverSelection();
+                }
+                if (state.selectedPolityLayer && state.polityLayer) {
+                    state.polityLayer.resetStyle(state.selectedPolityLayer);
+                    state.selectedPolityLayer = null;
+                }
+
+                // Toggle selection - clicking same ocean deselects
+                if (terrainState.selectedOceanLayer === layer) {
+                    layer.setStyle(styleFunc(feature));
+                    terrainState.selectedOceanLayer = null;
+                    // Unpin and hide info panel
+                    unpinInfoPanel();
+                } else {
+                    // Select new ocean
+                    layer.setStyle(highlightStyle(feature));
+                    layer.bringToFront();
+                    terrainState.selectedOceanLayer = layer;
+
+                    // Show info panel with marine info - use showPointInfo
+                    // First unpin if pinned to allow new selection
+                    if (state.infoPanelPinned) {
+                        state.infoPanelPinned = false;
+                    }
+                    showPointInfo(lon, lat);
+                }
+
+                L.DomEvent.stopPropagation(e);
+            });
+        }
+    }).addTo(state.map);
+
+    // Send to back so it doesn't cover territories
+    terrainState.oceansLayer.bringToBack();
+}
+
+// Toggle oceans layer
+function toggleOceans() {
+    terrainState.showOceans = !terrainState.showOceans;
+    renderOceansLayer();
+}
+
 // Toggle labels layer
 function toggleLabels() {
     if (terrainState.showLabels && !terrainState.labelsLayer) {
@@ -985,11 +1247,31 @@ async function loadTerrainData() {
     terrainState.coastlinesData = terrainState.coastlineDetail === 'detailed'
         ? (terrainState.coastlinesDetailedData || terrainState.coastlinesStandardData)
         : (terrainState.coastlinesStandardData || terrainState.coastlinesDetailedData);
+
+    // Load marine areas (oceans, seas, etc.)
+    try {
+        const response = await fetch('data/terrain/marine.geojson');
+        if (response.ok) {
+            terrainState.marineData = await response.json();
+        }
+    } catch (err) {
+        console.warn('Could not load marine data:', err);
+    }
 }
 
 // Setup terrain controls
 export function setupTerrainControls() {
-    // Base map buttons
+    // Base map chip buttons
+    document.querySelectorAll('.basemap-chip').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const mapType = this.dataset.basemap;
+            document.querySelectorAll('.basemap-chip').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            switchBasemap(mapType);
+        });
+    });
+
+    // Legacy basemap buttons (fallback)
     document.querySelectorAll('#view-panel .basemap-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const mapType = this.dataset.basemap;
@@ -999,12 +1281,20 @@ export function setupTerrainControls() {
         });
     });
 
+    // Helper to update toggle button text
+    function updateToggleText(btn, isActive) {
+        if (btn.classList.contains('ribbon-toggle')) {
+            btn.textContent = isActive ? 'On' : 'Off';
+        }
+    }
+
     // Elevation toggle
     const elevationBtn = document.getElementById('toggle-elevation');
     if (elevationBtn) {
         elevationBtn.addEventListener('click', function() {
             terrainState.showElevation = !terrainState.showElevation;
             this.classList.toggle('active', terrainState.showElevation);
+            updateToggleText(this, terrainState.showElevation);
             if (terrainState.showElevation) {
                 if (!terrainState.elevationLayer) {
                     terrainState.elevationLayer = createElevationLayer();
@@ -1025,6 +1315,7 @@ export function setupTerrainControls() {
         hillshadeBtn.addEventListener('click', function() {
             terrainState.showHillshade = !terrainState.showHillshade;
             this.classList.toggle('active', terrainState.showHillshade);
+            updateToggleText(this, terrainState.showHillshade);
             if (terrainState.showHillshade) {
                 if (!terrainState.hillshadeLayer) {
                     terrainState.hillshadeLayer = createHillshadeLayer();
@@ -1050,6 +1341,7 @@ export function setupTerrainControls() {
         riversBtn.addEventListener('click', function() {
             terrainState.showRivers = !terrainState.showRivers;
             this.classList.toggle('active', terrainState.showRivers);
+            updateToggleText(this, terrainState.showRivers);
             updateRiversLayer();
             bringDataLayersToFront();
         });
@@ -1061,6 +1353,7 @@ export function setupTerrainControls() {
         coastlinesBtn.addEventListener('click', function() {
             terrainState.showCoastlines = !terrainState.showCoastlines;
             this.classList.toggle('active', terrainState.showCoastlines);
+            updateToggleText(this, terrainState.showCoastlines);
             updateCoastlinesLayer();
             bringDataLayersToFront();
         });
@@ -1072,6 +1365,7 @@ export function setupTerrainControls() {
         labelsBtn.addEventListener('click', function() {
             terrainState.showLabels = !terrainState.showLabels;
             this.classList.toggle('active', terrainState.showLabels);
+            updateToggleText(this, terrainState.showLabels);
             toggleLabels();
         });
     }
@@ -1082,10 +1376,75 @@ export function setupTerrainControls() {
         civNamesBtn.addEventListener('click', function() {
             state.showCivNames = !state.showCivNames;
             this.classList.toggle('active', state.showCivNames);
+            updateToggleText(this, state.showCivNames);
             // Trigger map update to refresh labels
             if (window.updateMapWithGraph) {
                 window.updateMapWithGraph(state.currentYear);
             }
+        });
+    }
+
+    // Oceans toggle
+    const oceansBtn = document.getElementById('toggle-oceans');
+    if (oceansBtn) {
+        oceansBtn.addEventListener('click', function() {
+            this.classList.toggle('active', !terrainState.showOceans);
+            updateToggleText(this, !terrainState.showOceans);
+            toggleOceans();
+        });
+    }
+
+    // Ocean fill toggle
+    const oceanFillSelect = document.getElementById('ocean-fill');
+    if (oceanFillSelect) {
+        oceanFillSelect.addEventListener('change', function() {
+            terrainState.oceanFill = this.value === 'on';
+            renderOceansLayer();
+        });
+    }
+
+    // Ocean opacity
+    const oceanOpacitySelect = document.getElementById('ocean-opacity');
+    if (oceanOpacitySelect) {
+        oceanOpacitySelect.addEventListener('change', function() {
+            terrainState.oceanOpacity = parseFloat(this.value);
+            renderOceansLayer();
+        });
+    }
+
+    // Ocean line weight
+    const oceanLineWeightSelect = document.getElementById('ocean-line-weight');
+    if (oceanLineWeightSelect) {
+        oceanLineWeightSelect.addEventListener('change', function() {
+            terrainState.oceanLineWeight = parseFloat(this.value);
+            renderOceansLayer();
+        });
+    }
+
+    // Ocean line color
+    const oceanLineColorSelect = document.getElementById('ocean-line-color');
+    if (oceanLineColorSelect) {
+        oceanLineColorSelect.addEventListener('change', function() {
+            terrainState.oceanLineColor = this.value;
+            renderOceansLayer();
+        });
+    }
+
+    // Ocean palette
+    const oceanPaletteSelect = document.getElementById('ocean-palette');
+    if (oceanPaletteSelect) {
+        oceanPaletteSelect.addEventListener('change', function() {
+            terrainState.oceanPalette = this.value;
+            renderOceansLayer();
+        });
+    }
+
+    // Ocean tooltips
+    const oceanTooltipsSelect = document.getElementById('ocean-tooltips');
+    if (oceanTooltipsSelect) {
+        oceanTooltipsSelect.addEventListener('change', function() {
+            terrainState.oceanTooltips = this.value === 'on';
+            renderOceansLayer();
         });
     }
 
@@ -1118,15 +1477,48 @@ export function setupTerrainControls() {
         });
     }
 
-    // Color preset buttons
-    document.querySelectorAll('#view-panel .color-preset').forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('#view-panel .color-preset').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            terrainState.currentRamp = this.dataset.preset;
-            refreshElevation();
+    // Gradient picker dropdown
+    const gradientPicker = document.getElementById('elevation-gradient-picker');
+    if (gradientPicker) {
+        const selected = gradientPicker.querySelector('.gradient-selected');
+        const dropdown = gradientPicker.querySelector('.gradient-dropdown');
+        const options = gradientPicker.querySelectorAll('.gradient-option');
+
+        // Toggle dropdown
+        selected.addEventListener('click', (e) => {
+            e.stopPropagation();
+            gradientPicker.classList.toggle('open');
         });
-    });
+
+        // Select option
+        options.forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const preset = option.dataset.preset;
+                const gradient = option.style.background;
+
+                // Update selected display
+                selected.style.background = gradient;
+                selected.dataset.preset = preset;
+
+                // Update active state
+                options.forEach(o => o.classList.remove('active'));
+                option.classList.add('active');
+
+                // Apply preset
+                terrainState.currentRamp = preset;
+                refreshElevation();
+
+                // Close dropdown
+                gradientPicker.classList.remove('open');
+            });
+        });
+
+        // Close on outside click
+        document.addEventListener('click', () => {
+            gradientPicker.classList.remove('open');
+        });
+    }
 
     // River detail selector
     const riverDetail = document.getElementById('river-detail');

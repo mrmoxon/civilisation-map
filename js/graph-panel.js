@@ -222,7 +222,7 @@ export function drawGraph() {
         for (let i = 1; i < values.length; i++) {
             ctx.lineTo(xScale(values[i].year), yScale(values[i].value));
         }
-        ctx.strokeStyle = '#4da6ff';
+        ctx.strokeStyle = '#2D2D2D';
         ctx.lineWidth = 2;
         ctx.stroke();
 
@@ -232,7 +232,7 @@ export function drawGraph() {
             ctx.arc(xScale(currentData.year), yScale(currentData.value), 5, 0, Math.PI * 2);
             ctx.fillStyle = '#fff';
             ctx.fill();
-            ctx.strokeStyle = '#4da6ff';
+            ctx.strokeStyle = '#2D2D2D';
             ctx.lineWidth = 2;
             ctx.stroke();
         }

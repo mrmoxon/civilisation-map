@@ -55,17 +55,42 @@ export function updateLeaderboardPosition() {
     const statsVisible = !statsPanel.classList.contains('hidden');
     const leaderboardVisible = !leaderboard.classList.contains('hidden');
 
+    // Get base offset (accounts for controls at top and edge offset)
+    const controlsAtTop = document.body.classList.contains('controls-at-top');
+    const edgeOffsetFurther = document.body.classList.contains('edge-offset-further');
+    const controlsWrapper = document.getElementById('controls-wrapper');
+    let baseOffset = 10;
+
+    if (controlsAtTop && controlsWrapper) {
+        // When collapsed, only the tab bar (36px) is visible
+        const isCollapsed = controlsWrapper.classList.contains('collapsed');
+        const visibleHeight = isCollapsed ? 36 : controlsWrapper.offsetHeight;
+        // Add extra offset if "Further" is enabled and collapsed
+        const edgeExtra = (edgeOffsetFurther && isCollapsed) ? 14 : 0;
+        baseOffset = visibleHeight + 10 + edgeExtra;
+    }
+
     if (statsVisible && leaderboardVisible) {
-        // Position leaderboard below stats
+        // Position stats at base offset, leaderboard below stats
+        statsPanel.style.top = baseOffset + 'px';
         const statsHeight = statsPanel.offsetHeight;
-        leaderboard.style.top = (10 + statsHeight) + 'px';
+        leaderboard.style.top = (baseOffset + statsHeight) + 'px';
         statsPanel.style.borderBottomLeftRadius = '0';
         statsPanel.style.borderBottomRightRadius = '0';
         leaderboard.style.borderTopLeftRadius = '0';
         leaderboard.style.borderTopRightRadius = '0';
+    } else if (statsVisible) {
+        statsPanel.style.top = baseOffset + 'px';
+        statsPanel.style.borderBottomLeftRadius = '';
+        statsPanel.style.borderBottomRightRadius = '';
+    } else if (leaderboardVisible) {
+        leaderboard.style.top = baseOffset + 'px';
+        leaderboard.style.borderTopLeftRadius = '';
+        leaderboard.style.borderTopRightRadius = '';
     } else {
         // Reset positions
-        leaderboard.style.top = '10px';
+        leaderboard.style.top = baseOffset + 'px';
+        statsPanel.style.top = baseOffset + 'px';
         statsPanel.style.borderBottomLeftRadius = '';
         statsPanel.style.borderBottomRightRadius = '';
         leaderboard.style.borderTopLeftRadius = '';
@@ -148,8 +173,7 @@ export function updateLeaderboard(visiblePolities, year) {
     if (state.leaderboardSort === 'all') {
         // "All" view with columns
         listHtml = allPolities.map(p => `
-            <div class="leaderboard-item leaderboard-item-all" data-name="${p.name}">
-                <div class="leaderboard-color" style="background: ${p.color}"></div>
+            <div class="leaderboard-item leaderboard-item-all" data-name="${p.name}" style="--polity-color: ${p.color}">
                 <span class="leaderboard-name" title="${p.name}">${p.name}</span>
                 <div class="leaderboard-ranks">
                     <span class="leaderboard-rank-cell" title="Area: ${formatArea(p.area)}">#${p.rankArea}</span>
@@ -161,9 +185,8 @@ export function updateLeaderboard(visiblePolities, year) {
     } else {
         // Single metric view
         listHtml = allPolities.map((p, i) => `
-            <div class="leaderboard-item" data-name="${p.name}">
+            <div class="leaderboard-item" data-name="${p.name}" style="--polity-color: ${p.color}">
                 <span class="leaderboard-rank">${i + 1}</span>
-                <div class="leaderboard-color" style="background: ${p.color}"></div>
                 <span class="leaderboard-name" title="${p.name}">${p.name}</span>
                 <span class="leaderboard-value">${valueFormatter[state.leaderboardSort](p)}</span>
             </div>

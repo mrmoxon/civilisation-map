@@ -1,0 +1,202 @@
+/* Settings Panel (tab-based, within controls-wrapper) */
+
+/* Settings tab button (icon only, right side) */
+.settings-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 10px;
+    margin-left: 8px;
+    background: transparent;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: all 0.1s;
+}
+
+.settings-tab:hover {
+    color: var(--text-primary);
+}
+
+.settings-tab.active {
+    color: var(--accent-dark);
+}
+
+.settings-tab svg {
+    width: 16px;
+    height: 16px;
+}
+
+.settings-content {
+    padding: 15px 20px;
+    display: flex;
+    gap: 30px;
+    overflow-x: auto;
+}
+
+/* Theme Grid - styled like basemap grid */
+.theme-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    max-width: 500px;
+}
+
+.theme-option {
+    background: var(--surface-secondary);
+    border: 2px solid transparent;
+    border-radius: 2px;
+    padding: 6px 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    text-align: center;
+}
+
+.theme-option:hover {
+    border-color: var(--border-medium);
+}
+
+.theme-option.active {
+    border-color: var(--accent-dark);
+}
+
+.theme-preview {
+    width: 100%;
+    height: 30px;
+    border-radius: 1px;
+    margin-bottom: 2px;
+}
+
+.theme-preview-light {
+    background: linear-gradient(135deg, #FAFAFA 0%, #F5F5F5 50%, #EFEFEF 100%);
+    border: 1px solid rgba(0,0,0,0.08);
+}
+
+.theme-preview-dark {
+    background: linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 50%, #3D3D3D 100%);
+}
+
+.theme-preview-neutral {
+    background: linear-gradient(135deg, #D8D8D8 0%, #CECECE 50%, #C4C4C4 100%);
+    border: 1px solid rgba(0,0,0,0.08);
+}
+
+.theme-preview-offwhite {
+    background: linear-gradient(135deg, #F5F1E8 0%, #EDE9E0 50%, #E5E0D6 100%);
+    border: 1px solid rgba(0,0,0,0.08);
+}
+
+.theme-name {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.theme-option.active .theme-name {
+    color: var(--text-primary);
+}
+
+/* Crosshair Grid */
+.crosshair-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+}
+
+.crosshair-option {
+    background: var(--surface-secondary);
+    border: 2px solid transparent;
+    border-radius: 2px;
+    padding: 8px 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    text-align: center;
+    min-width: 50px;
+}
+
+.crosshair-option:hover {
+    border-color: var(--border-medium);
+}
+
+.crosshair-option.active {
+    border-color: var(--accent-dark);
+}
+
+.crosshair-preview {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+}
+
+.crosshair-option.active .crosshair-preview {
+    color: var(--text-primary);
+}
+
+.crosshair-name {
+    font-size: 10px;
+    color: var(--text-tertiary);
+}
+
+.crosshair-option.active .crosshair-name {
+    color: var(--text-primary);
+}
+
+/* Layout Options */
+.layout-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.layout-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.layout-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.layout-switch-group {
+    display: flex;
+    background: var(--surface-secondary);
+    border-radius: 3px;
+    padding: 2px;
+    gap: 2px;
+}
+
+.layout-switch-btn {
+    padding: 4px 10px;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    background: transparent;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.layout-switch-btn:hover {
+    color: var(--text-secondary);
+}
+
+.layout-switch-btn.active {
+    background: var(--surface-primary);
+    color: var(--text-primary);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}

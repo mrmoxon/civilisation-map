@@ -176,6 +176,8 @@ export function updateMap(year) {
                     mouseover: e => {
                         e.target.setStyle({ weight: 3, fillOpacity: 0.7 });
                         if (state.infoPanelPinned) return;
+                        // Don't override if a higher priority element is being hovered
+                        if (state.hoverPriority) return;
                         showPolityInfo(feature.properties, feature.geometry);
                     },
                     mouseout: e => {
@@ -187,8 +189,8 @@ export function updateMap(year) {
                         hideInfo();
                     },
                     click: e => {
-                        // If a city or river click already handled this event, don't override
-                        if (e.originalEvent._cityHandled || e.originalEvent._riverHandled) {
+                        // If a city, river, or ocean click already handled this event, don't override
+                        if (e.originalEvent._cityHandled || e.originalEvent._riverHandled || e.originalEvent._oceanHandled) {
                             L.DomEvent.stopPropagation(e);
                             return;
                         }
@@ -226,6 +228,12 @@ export function updateMap(year) {
                         if (state.selectedPolityLayer && state.selectedPolityLayer !== e.target) {
                             state.polityLayer.resetStyle(state.selectedPolityLayer);
                         }
+
+                        // Reset previously selected ocean
+                        if (window.resetOceanSelection) {
+                            window.resetOceanSelection();
+                        }
+
                         // Set new selected layer and apply highlight
                         state.selectedPolityLayer = e.target;
                         e.target.setStyle({ weight: 3, fillOpacity: 0.7 });
@@ -396,7 +404,7 @@ export function updateMap(year) {
                 // Highlight the selected city
                 marker.setStyle({
                     weight: 3,
-                    color: '#4da6ff',
+                    color: '#2D2D2D',
                     fillOpacity: Math.min(1, opacity + 0.3)
                 });
 
@@ -406,6 +414,11 @@ export function updateMap(year) {
                 // Reset previously selected polity layer
                 if (state.selectedPolityLayer) {
                     state.polityLayer.resetStyle(state.selectedPolityLayer);
+                }
+
+                // Reset previously selected ocean
+                if (window.resetOceanSelection) {
+                    window.resetOceanSelection();
                 }
 
                 // Highlight the territory containing this city
