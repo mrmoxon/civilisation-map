@@ -1,6 +1,7 @@
 // Leaderboard rendering and sorting
 import { state } from './state.js';
 import { getColor, formatArea, formatAge, formatBillions, getWorldStatsForYear, countCitiesInPolity } from './utils.js';
+import { showPointInfo, showLocationJumpIndicator } from './info-panel.js';
 
 // Update stats panel separately
 export function updateStatsPanel(visiblePolities, year) {
@@ -46,7 +47,7 @@ export function updateStatsPanel(visiblePolities, year) {
 }
 
 // Position leaderboard based on stats panel visibility
-function updateLeaderboardPosition() {
+export function updateLeaderboardPosition() {
     const statsPanel = document.getElementById('stats-panel');
     const leaderboard = document.getElementById('leaderboard');
     if (!statsPanel || !leaderboard) return;
@@ -140,13 +141,13 @@ export function updateLeaderboard(visiblePolities, year) {
         age: p => formatAge(p.age)
     };
 
-    const topPolities = polities.slice(0, 15);
+    const allPolities = polities; // Load all territories
     const expandedClass = state.leaderboardExpanded ? 'expanded' : '';
 
     let listHtml;
     if (state.leaderboardSort === 'all') {
         // "All" view with columns
-        listHtml = topPolities.map(p => `
+        listHtml = allPolities.map(p => `
             <div class="leaderboard-item leaderboard-item-all" data-name="${p.name}">
                 <div class="leaderboard-color" style="background: ${p.color}"></div>
                 <span class="leaderboard-name" title="${p.name}">${p.name}</span>
@@ -159,7 +160,7 @@ export function updateLeaderboard(visiblePolities, year) {
         `).join('');
     } else {
         // Single metric view
-        listHtml = topPolities.map((p, i) => `
+        listHtml = allPolities.map((p, i) => `
             <div class="leaderboard-item" data-name="${p.name}">
                 <span class="leaderboard-rank">${i + 1}</span>
                 <div class="leaderboard-color" style="background: ${p.color}"></div>
@@ -169,9 +170,9 @@ export function updateLeaderboard(visiblePolities, year) {
         `).join('');
     }
 
-    const showMoreBtn = topPolities.length > 5 ? `
+    const showMoreBtn = allPolities.length > 5 ? `
         <div class="leaderboard-toggle" id="leaderboard-expand">
-            <span class="leaderboard-toggle-text">${state.leaderboardExpanded ? 'Show less' : `Show ${Math.min(topPolities.length, 15) - 5} more`}</span>
+            <span class="leaderboard-toggle-text">${state.leaderboardExpanded ? 'Show less' : `Show ${allPolities.length - 5} more`}</span>
             <span class="leaderboard-toggle-chevron">${state.leaderboardExpanded ? '▲' : '▼'}</span>
         </div>
     ` : '';
@@ -197,12 +198,51 @@ export function updateLeaderboard(visiblePolities, year) {
         item.addEventListener('click', () => {
             const name = item.dataset.name;
             const polity = visiblePolities.find(p => p.properties.Name === name);
-            if (polity && state.polityLayer) {
-                state.polityLayer.eachLayer(layer => {
-                    if (layer.feature && layer.feature.properties.Name === name) {
-                        state.map.fitBounds(layer.getBounds());
+            if (polity && state.map) {
+                // Save current location before navigating
+                const currentCenter = state.map.getCenter();
+                const currentZoom = state.map.getZoom();
+
+                // Calculate centroid from geometry
+                let coords;
+                if (polity.geometry.type === 'Polygon') {
+                    coords = polity.geometry.coordinates[0];
+                } else if (polity.geometry.type === 'MultiPolygon') {
+                    // Use the first (usually largest) polygon
+                    coords = polity.geometry.coordinates[0][0];
+                }
+
+                if (coords) {
+                    const lon = coords.reduce((sum, c) => sum + c[0], 0) / coords.length;
+                    const lat = coords.reduce((sum, c) => sum + c[1], 0) / coords.length;
+
+                    // If this is the first navigation, save the starting point first
+                    if (state.locationHistory.length === 0) {
+                        state.locationHistory.push({
+                            coords: [currentCenter.lat, currentCenter.lng],
+                            zoom: currentZoom,
+                            territoryName: 'Starting point',
+                            territoryColor: '#888'
+                        });
                     }
-                });
+
+                    // Push the NEW location we're navigating TO
+                    state.locationHistory.push({
+                        coords: [lat, lon],
+                        zoom: currentZoom,
+                        territoryName: name,
+                        territoryColor: getColor(name)
+                    });
+
+                    // Navigate to centroid without changing zoom
+                    state.map.setView([lat, lon], currentZoom);
+
+                    // Select and pin the territory info
+                    showPointInfo(lon, lat);
+
+                    // Show the return indicator
+                    showLocationJumpIndicator();
+                }
             }
         });
     });
@@ -210,11 +250,12 @@ export function updateLeaderboard(visiblePolities, year) {
     // Expand/collapse toggle
     const expandBtn = document.getElementById('leaderboard-expand');
     if (expandBtn) {
+        const totalCount = allPolities.length;
         expandBtn.addEventListener('click', () => {
             state.leaderboardExpanded = !state.leaderboardExpanded;
             document.querySelector('.leaderboard-list').classList.toggle('expanded', state.leaderboardExpanded);
             expandBtn.querySelector('.leaderboard-toggle-text').textContent =
-                state.leaderboardExpanded ? 'Show less' : `Show ${Math.min(topPolities.length, 15) - 5} more`;
+                state.leaderboardExpanded ? 'Show less' : `Show ${totalCount - 5} more`;
             expandBtn.querySelector('.leaderboard-toggle-chevron').textContent =
                 state.leaderboardExpanded ? '▲' : '▼';
         });

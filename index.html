@@ -97,14 +97,14 @@
         </div>
     </div>
 
-    <div id="stats-panel" class="stats-panel">
+    <div id="stats-panel" class="stats-panel hidden">
         <div class="stats-panel-header">
             <h4>World Stats</h4>
         </div>
         <div id="stats-panel-content" class="stats-panel-content"></div>
     </div>
 
-    <div id="leaderboard" class="leaderboard hidden">
+    <div id="leaderboard" class="leaderboard">
         <div class="leaderboard-header">
             <h4>Leaderboard</h4>
             <button class="filter-btn" id="filter-btn" title="Filter">
@@ -129,7 +129,7 @@
 
     <!-- Quick menu - vertical buttons above timeline -->
     <div id="quick-menu" class="quick-menu">
-        <button class="quick-menu-btn active" id="qm-stats" title="Toggle Stats">
+        <button class="quick-menu-btn" id="qm-stats" title="Toggle Stats">
             <svg class="qm-icon" viewBox="0 0 20 20" fill="currentColor">
                 <rect x="2" y="10" width="4" height="8" rx="1"/>
                 <rect x="8" y="6" width="4" height="12" rx="1"/>
@@ -137,7 +137,7 @@
             </svg>
             <span class="qm-label">Stats</span>
         </button>
-        <button class="quick-menu-btn" id="qm-leaderboard" title="Toggle Leaderboard">
+        <button class="quick-menu-btn active" id="qm-leaderboard" title="Toggle Leaderboard">
             <svg class="qm-icon" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M10 2l2.5 5 5.5.8-4 3.9.9 5.3-4.9-2.6-4.9 2.6.9-5.3-4-3.9 5.5-.8z"/>
             </svg>
@@ -500,6 +500,38 @@
                                     <option value="standard" selected>Standard</option>
                                     <option value="insensitive">Insensitive</option>
                                     <option value="off">Off</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="view-row">
+                            <div class="view-control-group">
+                                <label>Lightness</label>
+                                <select id="city-lightness">
+                                    <option value="dark">Dark</option>
+                                    <option value="normal">Normal</option>
+                                    <option value="light">Light</option>
+                                    <option value="pale" selected>Pale</option>
+                                    <option value="pastel">Pastel</option>
+                                </select>
+                            </div>
+                            <div class="view-control-group">
+                                <label>Outline</label>
+                                <select id="city-outline">
+                                    <option value="none">None</option>
+                                    <option value="thin">Thin</option>
+                                    <option value="normal" selected>Normal</option>
+                                    <option value="bold">Bold</option>
+                                    <option value="heavy">Heavy</option>
+                                </select>
+                            </div>
+                            <div class="view-control-group">
+                                <label>Outline Color</label>
+                                <select id="city-outline-color">
+                                    <option value="light" selected>Light</option>
+                                    <option value="dark">Dark</option>
+                                    <option value="white">White</option>
+                                    <option value="black">Black</option>
+                                    <option value="match">Match Fill</option>
                                 </select>
                             </div>
                         </div>

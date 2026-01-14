@@ -18,7 +18,7 @@ export const state = {
     leaderboardCollapsed: false,
     leaderboardExpanded: false,
     filterPanelOpen: false,
-    statsCollapsed: false,
+    statsCollapsed: true,
 
     // Info Panel
     infoPanelPinned: false,
@@ -69,7 +69,13 @@ export const state = {
         contested: [],  // [[lat, lon, intensity], ...]
         settled: []
     },
-    heatmapComputed: false
+    heatmapComputed: false,
+
+    // Timeline jump tracking
+    timelineJump: null, // { fromYear, toYear, empireName, empireColor } - tracks when user jumps via location history
+
+    // Location history stack (for leaderboard navigation)
+    locationHistory: [] // Array of { coords: [lat, lng], zoom, territoryName, territoryColor } - navigation history stack
 };
 
 // Color palette for polities

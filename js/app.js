@@ -3,8 +3,8 @@ import { state } from './state.js';
 import { loadAllData } from './data-loader.js';
 import { initMap, updateMap } from './map.js';
 import { setupTimeline, updateYearInput } from './timeline.js';
-import { setupInfoPanel, unpinInfoPanel, updateInfoPanel, showPointInfo } from './info-panel.js';
-import { setupLeaderboard } from './leaderboard.js';
+import { setupInfoPanel, unpinInfoPanel, updateInfoPanel, showPointInfo, hideTimelineJumpIndicator } from './info-panel.js';
+import { setupLeaderboard, updateLeaderboardPosition } from './leaderboard.js';
 import { setupGraphPanel, updateGraph, preloadGraphData } from './graph-panel.js';
 import { setupHeatmapControls } from './heatmap.js';
 import { initTerrain } from './terrain.js';
@@ -15,6 +15,12 @@ let originalUpdateMap = updateMap;
 // Enhanced updateMap that also updates graph and info panel when visible
 function updateMapWithGraph(year) {
     const visiblePolities = originalUpdateMap(year);
+
+    // Clear any existing timeline jump indicator (jumpToYear will set it back if needed)
+    if (state.timelineJump) {
+        state.timelineJump = null;
+        hideTimelineJumpIndicator();
+    }
 
     // Update info panel if pinned
     updateInfoPanel();
@@ -150,6 +156,7 @@ function setupQuickMenu() {
             state.statsCollapsed = !state.statsCollapsed;
             document.getElementById('stats-panel').classList.toggle('hidden', state.statsCollapsed);
             statsBtn.classList.toggle('active', !state.statsCollapsed);
+            updateLeaderboardPosition();
         });
     }
 
@@ -159,6 +166,7 @@ function setupQuickMenu() {
             state.leaderboardCollapsed = !state.leaderboardCollapsed;
             document.getElementById('leaderboard').classList.toggle('hidden', state.leaderboardCollapsed);
             leaderboardBtn.classList.toggle('active', !state.leaderboardCollapsed);
+            updateLeaderboardPosition();
         });
     }
 

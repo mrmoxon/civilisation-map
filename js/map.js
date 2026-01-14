@@ -53,6 +53,24 @@ function getZoomScale(zoom) {
     return 1 + (zoom - 3) * 0.11;
 }
 
+// Get current city outline weight from settings
+function getCityOutlineWeight() {
+    const weights = { none: 0, thin: 0.5, normal: 1, bold: 2, heavy: 3 };
+    return weights[terrainState.cityOutline] || 1;
+}
+
+// Get current city outline color from settings
+function getCityOutlineColor(fillColor) {
+    switch (terrainState.cityOutlineColor) {
+        case 'light': return 'rgb(200, 200, 200)';
+        case 'dark': return 'rgb(60, 60, 60)';
+        case 'white': return 'rgb(255, 255, 255)';
+        case 'black': return 'rgb(0, 0, 0)';
+        case 'match': return fillColor || 'rgb(200, 200, 200)';
+        default: return 'rgb(200, 200, 200)';
+    }
+}
+
 export function initMap() {
     state.map = L.map('map', {
         center: [30, 40],
@@ -266,8 +284,10 @@ export function updateMap(year) {
             const baseRadius = getCityRadius(pop);
             const radius = baseRadius * zoomScale;
 
-            const fillColor = getCityColor(city, visiblePolities);
-            const borderColor = 'rgb(200, 200, 200)'; // Light border like strong coastline style
+            const fillColor = getCityColor(city, visiblePolities, terrainState.cityLightness);
+            const outlineWeight = getCityOutlineWeight();
+            const borderColor = getCityOutlineColor(fillColor);
+
             const opacity = statusOpacity[popData.status] || 0.5;
 
             // Visual marker
@@ -276,7 +296,7 @@ export function updateMap(year) {
                 radius: radius,
                 fillColor: fillColor,
                 color: borderColor,
-                weight: 1,
+                weight: outlineWeight,
                 opacity: 0.9,
                 fillOpacity: opacity,
                 interactive: false // Visual only
@@ -334,7 +354,7 @@ export function updateMap(year) {
 
                 // Always reset visual style for non-selected cities
                 marker.setStyle({
-                    weight: 1,
+                    weight: outlineWeight,
                     color: borderColor,
                     fillOpacity: opacity
                 });
@@ -359,9 +379,10 @@ export function updateMap(year) {
                         if (layer.cityData && layer.cityData.city === state.selectedCity) {
                             const oldPopData = layer.cityData.popData;
                             const oldOpacity = statusOpacity[oldPopData.status] || 0.5;
+                            const oldFillColor = layer.cityData.visualMarker.options.fillColor;
                             layer.cityData.visualMarker.setStyle({
-                                weight: 1,
-                                color: 'rgb(200, 200, 200)',
+                                weight: getCityOutlineWeight(),
+                                color: getCityOutlineColor(oldFillColor),
                                 fillOpacity: oldOpacity
                             });
                         }
@@ -571,9 +592,10 @@ export function resetCitySelection() {
             if (layer.cityData && layer.cityData.city === state.selectedCity) {
                 const popData = layer.cityData.popData;
                 const opacity = statusOpacity[popData.status] || 0.5;
+                const fillColor = layer.cityData.visualMarker.options.fillColor;
                 layer.cityData.visualMarker.setStyle({
-                    weight: 1,
-                    color: 'rgb(200, 200, 200)',
+                    weight: getCityOutlineWeight(),
+                    color: getCityOutlineColor(fillColor),
                     fillOpacity: opacity
                 });
             }

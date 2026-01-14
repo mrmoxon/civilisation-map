@@ -120,6 +120,9 @@ export const terrainState = {
     riverSensitivity: 'standard',
     cityHover: 'on',
     citySensitivity: 'standard',
+    cityLightness: 'pale',
+    cityOutline: 'normal',
+    cityOutlineColor: 'light',
     coastlineStyle: 'strong',
     coastlineDetail: 'detailed',
 
@@ -872,23 +875,23 @@ export function bringDataLayersToFront() {
     // Layer order (bottom to top): polities → rivers → river hit layer → cities → civ names
     // Priority: cities (top) > rivers > territories
     // The invisible hit layer is below cities so cities maintain highest priority
-    if (state.polityLayer) {
+    if (state.polityLayer?.bringToFront) {
         state.polityLayer.bringToFront();
     }
-    if (terrainState.riversLayer) {
+    if (terrainState.riversLayer?.bringToFront) {
         terrainState.riversLayer.bringToFront();
     }
-    if (terrainState.riversHitLayer) {
+    if (terrainState.riversHitLayer?.bringToFront) {
         terrainState.riversHitLayer.bringToFront();
     }
-    if (state.cityLayer) {
+    if (state.cityLayer?.bringToFront) {
         state.cityLayer.bringToFront();
     }
-    if (state.civNamesLayer) {
+    if (state.civNamesLayer?.bringToFront) {
         state.civNamesLayer.bringToFront();
     }
     // Also bring city hit layer to front if it exists (defined in map.js)
-    if (window.cityHitLayer) {
+    if (window.cityHitLayer?.bringToFront) {
         window.cityHitLayer.bringToFront();
     }
 }
@@ -1177,6 +1180,39 @@ export function setupTerrainControls() {
         citySensitivitySelect.addEventListener('change', function() {
             terrainState.citySensitivity = this.value;
             // Trigger city layer rebuild
+            if (window.updateCityLayer) {
+                window.updateCityLayer();
+            }
+        });
+    }
+
+    // City lightness selector
+    const cityLightnessSelect = document.getElementById('city-lightness');
+    if (cityLightnessSelect) {
+        cityLightnessSelect.addEventListener('change', function() {
+            terrainState.cityLightness = this.value;
+            if (window.updateCityLayer) {
+                window.updateCityLayer();
+            }
+        });
+    }
+
+    // City outline selector
+    const cityOutlineSelect = document.getElementById('city-outline');
+    if (cityOutlineSelect) {
+        cityOutlineSelect.addEventListener('change', function() {
+            terrainState.cityOutline = this.value;
+            if (window.updateCityLayer) {
+                window.updateCityLayer();
+            }
+        });
+    }
+
+    // City outline color selector
+    const cityOutlineColorSelect = document.getElementById('city-outline-color');
+    if (cityOutlineColorSelect) {
+        cityOutlineColorSelect.addEventListener('change', function() {
+            terrainState.cityOutlineColor = this.value;
             if (window.updateCityLayer) {
                 window.updateCityLayer();
             }

@@ -876,7 +876,9 @@ function renderInfoPanel() {
         item.addEventListener('click', (e) => {
             e.stopPropagation();
             const fromYear = parseInt(item.dataset.from);
-            jumpToYear(fromYear);
+            const empireName = item.querySelector('.history-name')?.textContent || 'Unknown';
+            const empireColor = item.querySelector('.history-marker')?.style.background || '#4da6ff';
+            jumpToYear(fromYear, { empireName, empireColor });
         });
     });
 
@@ -886,7 +888,9 @@ function renderInfoPanel() {
         previouslySection.addEventListener('click', (e) => {
             e.stopPropagation();
             const fromYear = parseInt(previouslySection.dataset.from);
-            jumpToYear(fromYear);
+            const empireName = previouslySection.querySelector('.previously-name')?.textContent || 'Unknown';
+            const empireColor = previouslySection.querySelector('.previously-marker')?.style.background || '#4da6ff';
+            jumpToYear(fromYear, { empireName, empireColor });
         });
     }
 
@@ -1037,7 +1041,9 @@ function highlightCity(lat, lon, name) {
 }
 
 // Jump to a specific year
-function jumpToYear(year) {
+// jumpInfo: optional { empireName, empireColor } for tracking history jumps
+function jumpToYear(year, jumpInfo = null) {
+    const previousYear = state.currentYear;
     const timeline = document.getElementById('timeline');
     timeline.value = year;
 
@@ -1056,7 +1062,165 @@ function jumpToYear(year) {
         input.value = year;
         select.value = 'ce';
     }
+
+    // Track timeline jump if this is from location history
+    if (jumpInfo) {
+        state.timelineJump = {
+            fromYear: previousYear,
+            toYear: year,
+            empireName: jumpInfo.empireName,
+            empireColor: jumpInfo.empireColor
+        };
+        showTimelineJumpIndicator();
+    }
 }
+
+// Show the timeline jump indicator
+function showTimelineJumpIndicator() {
+    let indicator = document.getElementById('timeline-jump-indicator');
+
+    // Create indicator if it doesn't exist
+    if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'timeline-jump-indicator';
+        indicator.className = 'timeline-jump-indicator';
+        document.body.appendChild(indicator);
+    }
+
+    const jump = state.timelineJump;
+    if (!jump) {
+        indicator.classList.remove('visible');
+        return;
+    }
+
+    indicator.innerHTML = `
+        <div class="jump-indicator-content">
+            <div class="jump-indicator-marker" style="background: ${jump.empireColor}"></div>
+            <div class="jump-indicator-text">
+                <span class="jump-indicator-label">Viewing</span>
+                <span class="jump-indicator-empire">${jump.empireName}</span>
+            </div>
+            <button class="jump-indicator-return" title="Return to ${formatYear(jump.fromYear)}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                Return
+            </button>
+            <button class="jump-indicator-close" title="Dismiss">×</button>
+        </div>
+    `;
+
+    // Add event listeners
+    indicator.querySelector('.jump-indicator-return').addEventListener('click', () => {
+        const returnYear = state.timelineJump?.fromYear;
+        state.timelineJump = null;
+        hideTimelineJumpIndicator();
+        if (returnYear !== undefined) {
+            jumpToYear(returnYear);
+        }
+    });
+
+    indicator.querySelector('.jump-indicator-close').addEventListener('click', () => {
+        state.timelineJump = null;
+        hideTimelineJumpIndicator();
+    });
+
+    // Show with animation
+    requestAnimationFrame(() => {
+        indicator.classList.add('visible');
+    });
+}
+
+// Hide the timeline jump indicator
+function hideTimelineJumpIndicator() {
+    const indicator = document.getElementById('timeline-jump-indicator');
+    if (indicator) {
+        indicator.classList.remove('visible');
+    }
+}
+
+// Show the location jump indicator (for leaderboard navigation)
+function showLocationJumpIndicator() {
+    let indicator = document.getElementById('location-jump-indicator');
+
+    // Create indicator if it doesn't exist
+    if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'location-jump-indicator';
+        indicator.className = 'location-jump-indicator';
+        document.body.appendChild(indicator);
+    }
+
+    const history = state.locationHistory;
+    if (!history || history.length === 0) {
+        indicator.classList.remove('visible');
+        return;
+    }
+
+    // Get the current location (last in history) for display
+    const current = history[history.length - 1];
+    // Steps back = history length minus 1 (the starting point doesn't count as a step)
+    const stepsBack = history.length - 1;
+
+    indicator.innerHTML = `
+        <div class="jump-indicator-content">
+            <div class="jump-indicator-marker" style="background: ${current.territoryColor}"></div>
+            <div class="jump-indicator-text">
+                <span class="jump-indicator-label">Viewing</span>
+                <span class="jump-indicator-empire">${current.territoryName}</span>
+            </div>
+            <button class="jump-indicator-return" title="Return to previous location">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                Back${stepsBack > 1 ? ` (${stepsBack})` : ''}
+            </button>
+            <button class="jump-indicator-close" title="Clear history">×</button>
+        </div>
+    `;
+
+    // Add event listeners
+    indicator.querySelector('.jump-indicator-return').addEventListener('click', () => {
+        if (state.locationHistory.length > 1) {
+            // Pop the current location off the stack
+            state.locationHistory.pop();
+
+            // Navigate to the previous location (now the last item)
+            const previous = state.locationHistory[state.locationHistory.length - 1];
+            state.map.setView(previous.coords, previous.zoom);
+
+            // If we're back at the starting point (only 1 item left), clear history
+            if (state.locationHistory.length === 1) {
+                state.locationHistory = [];
+                hideLocationJumpIndicator();
+            } else {
+                // Update the indicator to show new current
+                showLocationJumpIndicator();
+            }
+        }
+    });
+
+    indicator.querySelector('.jump-indicator-close').addEventListener('click', () => {
+        state.locationHistory = [];
+        hideLocationJumpIndicator();
+    });
+
+    // Show with animation
+    requestAnimationFrame(() => {
+        indicator.classList.add('visible');
+    });
+}
+
+// Hide the location jump indicator
+function hideLocationJumpIndicator() {
+    const indicator = document.getElementById('location-jump-indicator');
+    if (indicator) {
+        indicator.classList.remove('visible');
+    }
+}
+
+// Export for use in other modules if needed
+export { hideTimelineJumpIndicator, showLocationJumpIndicator, hideLocationJumpIndicator };
 
 export function showPolityInfo(props, geometry, clickLon, clickLat) {
     // Never update on hover if panel is pinned
@@ -1284,6 +1448,12 @@ export function unpinInfoPanel() {
     panel.style.display = 'none';
     state.currentInfoData = null;
     hideCrosshair();
+
+    // Clear location history when selection is cleared
+    if (state.locationHistory.length > 0) {
+        state.locationHistory = [];
+        hideLocationJumpIndicator();
+    }
 }
 
 // Called when timeline changes to update pinned panel

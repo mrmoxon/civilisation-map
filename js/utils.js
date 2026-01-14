@@ -21,6 +21,14 @@ export function darkenColor(hex, amount = 0.3) {
     return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`;
 }
 
+export function lightenColor(hex, amount = 0.3) {
+    const num = parseInt(hex.slice(1), 16);
+    const r = Math.min(255, Math.floor((num >> 16) + (255 - (num >> 16)) * amount));
+    const g = Math.min(255, Math.floor(((num >> 8) & 0x00FF) + (255 - ((num >> 8) & 0x00FF)) * amount));
+    const b = Math.min(255, Math.floor((num & 0x0000FF) + (255 - (num & 0x0000FF)) * amount));
+    return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`;
+}
+
 // Formatting functions
 export function formatYear(year) {
     if (year < 0) {
@@ -359,15 +367,29 @@ export function getWorldStatsForYear(year) {
 // 0.15° ≈ 16km, enough to catch most coastal cities missed due to coastline resolution mismatch
 export const CITY_TERRITORY_TOLERANCE = 0.15;
 
-export function getCityColor(city, visiblePolities) {
+// Lightness presets for city colors
+const cityLightnessPresets = {
+    dark: { amount: 0, defaultColor: '#2a2a3e' },
+    normal: { amount: 0.3, defaultColor: '#5a5a7e' },
+    light: { amount: 0.5, defaultColor: '#8a8aa8' },
+    pale: { amount: 0.75, defaultColor: '#b8b8c8' },
+    pastel: { amount: 0.88, defaultColor: '#d8d8e8' }
+};
+
+export function getCityColor(city, visiblePolities, lightness = 'pale') {
     const [lon, lat] = city.geometry.coordinates;
+    const preset = cityLightnessPresets[lightness] || cityLightnessPresets.pale;
 
     for (const polity of visiblePolities) {
         if (pointInGeometry(lon, lat, polity.geometry, CITY_TERRITORY_TOLERANCE)) {
-            return getColor(polity.properties.Name);
+            const baseColor = getColor(polity.properties.Name);
+            if (preset.amount === 0) {
+                return baseColor;
+            }
+            return lightenColor(baseColor, preset.amount);
         }
     }
-    return '#2a2a3e';
+    return preset.defaultColor;
 }
 
 export function countCitiesInPolity(polity, cities, year) {

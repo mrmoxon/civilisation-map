@@ -139,10 +139,12 @@
 .leaderboard-item {
     display: flex;
     align-items: center;
-    padding: 6px 12px;
+    padding: 8px 12px;
     gap: 10px;
     cursor: pointer;
     transition: background 0.15s;
+    min-height: 30px;
+    box-sizing: border-box;
 }
 
 .leaderboard-item:hover {
@@ -220,14 +222,31 @@
 
 /* Collapsible list */
 .leaderboard-list {
-    max-height: calc(5 * 32px); /* 5 items, ~32px each */
-    overflow: hidden;
+    max-height: 170px; /* Exactly 5 items */
+    overflow-y: auto;
     transition: max-height 0.25s ease;
 }
 
 .leaderboard-list.expanded {
-    max-height: calc(15 * 32px);
-    overflow-y: auto;
+    max-height: calc(100vh - 300px); /* Expand to fit screen, leaving room for other UI */
+}
+
+/* Scrollbar styling for leaderboard */
+.leaderboard-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.leaderboard-list::-webkit-scrollbar-track {
+    background: rgba(15, 52, 96, 0.3);
+}
+
+.leaderboard-list::-webkit-scrollbar-thumb {
+    background: rgba(77, 166, 255, 0.3);
+    border-radius: 3px;
+}
+
+.leaderboard-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(77, 166, 255, 0.5);
 }
 
 .leaderboard-toggle {
@@ -292,7 +311,7 @@
 }
 
 .leaderboard-item-all {
-    padding: 6px 12px;
+    padding: 8px 12px;
     gap: 8px;
 }
 
