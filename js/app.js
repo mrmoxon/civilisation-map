@@ -3,7 +3,7 @@ import { state } from './state.js';
 import { loadAllData } from './data-loader.js';
 import { initMap, updateMap } from './map.js';
 import { setupTimeline, updateYearInput } from './timeline.js';
-import { setupInfoPanel, unpinInfoPanel, updateInfoPanel, showPointInfo, hideTimelineJumpIndicator } from './info-panel.js';
+import { setupInfoPanel, unpinInfoPanel, pinInfoPanel, updateInfoPanel, showPointInfo, hideTimelineJumpIndicator } from './info-panel.js';
 import { setupLeaderboard, updateLeaderboardPosition } from './leaderboard.js';
 import { setupGraphPanel, updateGraph, preloadGraphData } from './graph-panel.js';
 import { setupHeatmapControls } from './heatmap.js';
@@ -13,6 +13,55 @@ import { markStart, markEnd, recordMapUpdate, recordDataLoad, recordFirstRender 
 
 // Store reference to original updateMap for graph integration
 let originalUpdateMap = updateMap;
+
+const welcomeHTML = `
+    <div style="margin-top:6px; font-size:12px; line-height:1.7; color:var(--text-secondary);">
+        <p style="margin:0 0 12px 0;">Civilisation is understudied as a concept. We study sub-categories endlessly, but rarely the whole. The best datasets are low resolution, missing standardisation, and full of bugs. CivTex aims to remedy this — creating a foundation for studying our history with a macroscopic lens.</p>
+        <div style="height:1px; background:var(--border-light); margin:12px 0;"></div>
+        <div style="font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--text-tertiary); margin-bottom:6px;">What's been built</div>
+        <ul style="margin:0 0 14px 0; padding-left:14px; font-size:11.5px; line-height:1.7;">
+            <li>Cleaned and unified the best peer-reviewed territorial and city datasets, built on <a href="https://github.com/Seshat-Global-History-Databank/cliopatria" target="_blank" style="color:inherit; text-decoration:underline;">Cliopatria</a> (CC BY 4.0)</li>
+            <li>Upscaled territory boundaries against high-fidelity coastline geometry</li>
+            <li>Better mapping UX — leaderboards, search, interactive timeline across 5,400 years</li>
+            <li>Geographic layers: elevation, rivers, coastlines, oceans</li>
+        </ul>
+        <div style="font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--text-tertiary); margin-bottom:6px;">Roadmap</div>
+        <ul style="margin:0; padding-left:14px; font-size:11.5px; line-height:1.7;">
+            <li><strong>Missing polities</strong> — filling gaps using battle datasets (12,700+ entries) and open-source boundary data</li>
+            <li><strong>Battles &amp; conflicts</strong> — mapping where battles happened, who fought who. Datasets reach 2500 BCE</li>
+            <li><strong>Flags</strong> — historically accurate flags from Wikidata with date ranges</li>
+            <li><strong>Leaders</strong> — who ruled each polity at any given time</li>
+            <li><strong>Richer graphs</strong> — deeper metrics, comparisons, and trends</li>
+            <li><strong>Dataset unification</strong> — building the most accurate and comprehensive single source</li>
+        </ul>
+    </div>`;
+
+function showWelcomeInfo() {
+    // Clear any existing selection state so the panel is fully ours
+    state.selectedLocation = null;
+    state.selectedCity = null;
+    state.selectedCoords = null;
+    state.selectedRiver = null;
+    state.selectedRiverSystem = null;
+    state.currentInfoData = null;
+
+    const panel = document.getElementById('info-panel');
+    const nameEl = document.getElementById('info-name');
+    const subtitleEl = document.getElementById('info-subtitle');
+    const contentEl = document.getElementById('info-content');
+    const wikiBtn = document.getElementById('info-wiki');
+    const copyBtn = document.getElementById('info-copy');
+
+    nameEl.textContent = 'CivTex';
+    subtitleEl.textContent = 'The most detailed open-source civilisation atlas';
+    contentEl.innerHTML = welcomeHTML;
+    wikiBtn.style.display = 'none';
+    copyBtn.style.display = 'none';
+
+    panel.className = 'info-panel pinned';
+    panel.style.display = 'block';
+    state.infoPanelPinned = true;
+}
 
 // Enhanced updateMap that also updates graph and info panel when visible
 function updateMapWithGraph(year) {
@@ -76,6 +125,12 @@ async function init() {
     setupHeatmapControls();
     setupSettings();
 
+    // Show welcome content in the info panel on startup
+    showWelcomeInfo();
+
+    // "Show project info" button in about panel
+    document.getElementById('show-welcome-btn')?.addEventListener('click', showWelcomeInfo);
+
     // Initialize terrain layers (async - loads rivers/coastlines/regions data)
     await initTerrain();
 
@@ -98,6 +153,7 @@ async function init() {
                 updateMapWithGraph(1);
                 recordFirstRender(markEnd('firstRender'));
                 updateYearInput(1);
+
             } else if (type === 'polities-update') {
                 // Additional polity file parsed — re-render with more data
                 updateMapWithGraph(state.currentYear);
@@ -491,14 +547,24 @@ function setupDiagnosticSettings() {
                 state.map.removeLayer(state.snapGhostLayer);
                 state.snapGhostLayer = null;
             }
+            if (state.coastlineWalkLayer) {
+                state.map.removeLayer(state.coastlineWalkLayer);
+                state.coastlineWalkLayer = null;
+            }
+            if (state.coastlineWalkContinuousLayer) {
+                state.map.removeLayer(state.coastlineWalkContinuousLayer);
+                state.coastlineWalkContinuousLayer = null;
+            }
             if (window.updateMapWithGraph) window.updateMapWithGraph(state.currentYear);
         });
     }
 }
 
 function applyDiagnosticMode(mode) {
-    state.vertexDiagnostic = (mode === 'vertices' || mode === 'ghost');
-    state.snapGhost = (mode === 'ghost');
+    state.vertexDiagnostic = (mode === 'vertices' || mode === 'ghost' || mode === 'walk-continuous-ghost');
+    state.snapGhost = (mode === 'ghost' || mode === 'walk-ghost' || mode === 'walk-continuous-ghost');
+    state.coastlineWalk = (mode === 'walk-ghost' || mode === 'walk-only');
+    state.coastlineWalkContinuous = (mode === 'walk-continuous' || mode === 'walk-continuous-ghost');
 }
 
 init();

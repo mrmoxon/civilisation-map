@@ -507,6 +507,16 @@
     color: #27ae60;
 }
 
+.search-result-badge.modern {
+    background: rgba(52, 152, 219, 0.15);
+    color: #2980b9;
+}
+
+.search-result-badge.future {
+    background: rgba(155, 89, 182, 0.15);
+    color: #8e44ad;
+}
+
 .search-result-badge.historical {
     background: rgba(0, 0, 0, 0.06);
     color: var(--text-tertiary);

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Historical World Map</title>
+    <title>CivTex</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/timeline.css">
@@ -186,6 +186,10 @@
         <div class="controls-tab">
             <div class="controls-tab-left">
                 <div class="panel-tabs">
+                    <button class="panel-tab" data-panel="view">
+                        <span class="tab-terrain-preview"></span>
+                        <span class="tab-label">View</span>
+                    </button>
                     <button class="panel-tab" data-panel="disputes">
                         <span class="tab-icon disputes-icon">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -195,9 +199,15 @@
                         </span>
                         <span class="tab-label">Disputes</span>
                     </button>
-                    <button class="panel-tab" data-panel="view">
-                        <span class="tab-terrain-preview"></span>
-                        <span class="tab-label">View</span>
+                    <button class="panel-tab" data-panel="about">
+                        <span class="tab-icon">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" y1="16" x2="12" y2="12"/>
+                                <line x1="12" y1="8" x2="12.01" y2="8"/>
+                            </svg>
+                        </span>
+                        <span class="tab-label">About</span>
                     </button>
                 </div>
             </div>
@@ -289,29 +299,60 @@
             <span style="display:none;">Cities: <strong id="city-count">0</strong></span>
             <span style="display:none;">Pop: <strong id="total-population">0</strong></span>
             </div>
+            <div class="controls-panel" id="about-panel">
+                <div style="display: flex; align-items: center; gap: 14px; padding: 10px 20px;">
+                    <button id="show-welcome-btn" style="
+                        background: rgba(255,255,255,0.08);
+                        border: 1px solid rgba(255,255,255,0.15);
+                        color: var(--text-primary);
+                        padding: 8px 16px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 12px;
+                        font-weight: 500;
+                        white-space: nowrap;
+                        transition: background 0.15s;
+                    " onmouseover="this.style.background='rgba(255,255,255,0.14)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">Show project info</button>
+                    <span style="font-size: 11px; color: var(--text-tertiary); line-height: 1.5;">Open the CivTex welcome card with project details and roadmap.</span>
+                </div>
+            </div>
             <div class="controls-panel" id="disputes-panel">
-                <div class="disputes-content">
-                    <h3 class="disputes-title">Historical Disputes Heatmap</h3>
-                    <p class="disputes-desc">Visualize territorial contestation and settlement patterns across history.</p>
-                    <div class="disputes-options">
-                        <button class="dispute-card active" data-heatmap="off">
-                            <div class="dispute-card-preview off">
-                                <span class="off-icon">○</span>
-                            </div>
-                            <div class="dispute-card-label">Off</div>
-                        </button>
-                        <button class="dispute-card" data-heatmap="contested">
-                            <div class="dispute-card-preview contested"></div>
-                            <div class="dispute-card-label">Most Contested</div>
-                            <div class="dispute-card-desc">Areas with frequent territorial changes</div>
-                        </button>
-                        <button class="dispute-card" data-heatmap="settled">
-                            <div class="dispute-card-preview settled"></div>
-                            <div class="dispute-card-label">Most Settled</div>
-                            <div class="dispute-card-desc">Areas with long-term stable control</div>
-                        </button>
+                <div class="disputes-content" style="display: flex; gap: 18px; align-items: flex-start;">
+                    <div class="disputes-left" style="flex-shrink: 0;">
+                        <h3 class="disputes-title">Historical Disputes Heatmap</h3>
+                        <p class="disputes-desc">Visualize territorial contestation and settlement patterns across history.</p>
+                        <div class="disputes-options">
+                            <button class="dispute-card active" data-heatmap="off">
+                                <div class="dispute-card-preview off">
+                                    <span class="off-icon">○</span>
+                                </div>
+                                <div class="dispute-card-label">Off</div>
+                            </button>
+                            <button class="dispute-card" data-heatmap="contested">
+                                <div class="dispute-card-preview contested"></div>
+                                <div class="dispute-card-label">Most Contested</div>
+                                <div class="dispute-card-desc">Areas with frequent territorial changes</div>
+                            </button>
+                            <button class="dispute-card" data-heatmap="settled">
+                                <div class="dispute-card-preview settled"></div>
+                                <div class="dispute-card-label">Most Settled</div>
+                                <div class="dispute-card-desc">Areas with long-term stable control</div>
+                            </button>
+                        </div>
+                        <div class="heatmap-status" id="heatmap-status"></div>
                     </div>
-                    <div class="heatmap-status" id="heatmap-status"></div>
+                    <div class="disputes-roadmap" style="flex: 1; min-width: 0; max-height: 140px; overflow-y: auto; padding: 10px 12px; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); font-size: 11px; color: rgba(255,255,255,0.5); line-height: 1.5;">
+                        <div style="font-weight: 600; color: rgba(255,255,255,0.65); margin-bottom: 6px;">Roadmap: Making disputes richer</div>
+                        <ul style="margin: 0; padding-left: 16px;">
+                            <li>Battle markers with coordinates, dates, and belligerents from the Wikidata/HCED datasets (12,700+ battles back to 2500 BCE)</li>
+                            <li>A per-year battle counter showing how many conflicts were active at any point on the timeline</li>
+                            <li>Belligerent mapping to polity boundaries — highlight which territories were at war with each other</li>
+                            <li>Animated conflict arcs between warring polities, showing the direction and intensity of engagements</li>
+                            <li>UCDP/ACLED layers for modern conflicts (350K+ events post-1989 with village-level precision)</li>
+                            <li>Temporal heatmaps showing cumulative conflict density over sliding time windows</li>
+                            <li>81% of Wikidata battles have at least one belligerent matching a Cliopatria polity — ~50-100 alias mappings would push this above 90%</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
             <div class="controls-panel" id="view-panel">
@@ -693,6 +734,10 @@
                                     <option value="off" selected>Off</option>
                                     <option value="vertices">Vertex diagnostic</option>
                                     <option value="ghost">Snap ghost</option>
+                                    <option value="walk-ghost">Coastline + ghost</option>
+                                    <option value="walk-only">Coastline only</option>
+                                    <option value="walk-continuous">Continuous walk</option>
+                                    <option value="walk-continuous-ghost">Continuous + ghost</option>
                                 </select>
                             </div>
                         </div>

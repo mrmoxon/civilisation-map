@@ -337,8 +337,16 @@ function renderSearchResults(results, query) {
 
     container.innerHTML = results.map((r, i) => {
         const period = `${formatYear(r.fromYear)} — ${formatYear(r.toYear)}`;
-        const badgeClass = r.alive ? 'active' : 'historical';
-        const badgeText = r.alive ? 'Active' : 'Historical';
+        let badgeClass, badgeText;
+        if (r.alive) {
+            badgeClass = 'active'; badgeText = 'Active';
+        } else if (r.toYear >= 2024) {
+            badgeClass = 'modern'; badgeText = 'Modern';
+        } else if (r.fromYear > state.currentYear) {
+            badgeClass = 'future'; badgeText = 'Future';
+        } else {
+            badgeClass = 'historical'; badgeText = 'Historical';
+        }
         return `<div class="search-result-item${i === state.searchSelectedIndex ? ' selected' : ''}" data-index="${i}" style="--polity-color: ${r.color}">
             <div class="search-result-info">
                 <div class="search-result-name">${highlightMatch(r.name, query)}</div>

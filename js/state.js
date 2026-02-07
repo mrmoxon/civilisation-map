@@ -91,6 +91,10 @@ export const state = {
     vertexDiagnosticLayer: null, // Leaflet layer group for diagnostic markers
     snapGhost: false,            // show snap ghost (snapped positions + connector lines)
     snapGhostLayer: null,        // Leaflet layer group for ghost visualization
+    coastlineWalk: false,        // show walked coastline polylines
+    coastlineWalkLayer: null,    // Leaflet layer group for walked coastline
+    coastlineWalkContinuous: false,       // show continuous walked coastline polylines
+    coastlineWalkContinuousLayer: null,   // Leaflet layer group for continuous walked coastline
 
     // Pinned toggles
     pinnedToggles: [] // Array of toggle IDs that are pinned (e.g., ['rivers', 'oceans'])

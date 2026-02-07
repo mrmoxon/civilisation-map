@@ -127,6 +127,8 @@ export const terrainState = {
     regionsData: null,
     vertexDiagnostic: null,
     snapGhost: null,
+    walkedBorders: null,
+    walkedBordersContinuous: null,
     riverDetailLevel: 6,
     riverStyle: 'strong',
     riverHover: 'on',
@@ -1390,6 +1392,28 @@ async function loadTerrainData() {
         }
     } catch (err) {
         console.warn('Could not load snap ghost data:', err);
+    }
+
+    // Load walked borders data (coastline walking between snap points)
+    try {
+        const response = await fetch('data/walked_borders_1ce.json');
+        if (response.ok) {
+            terrainState.walkedBorders = await response.json();
+            console.log(`[terrain] Loaded walked borders: ${Object.keys(terrainState.walkedBorders).length} territories`);
+        }
+    } catch (err) {
+        console.warn('Could not load walked borders data:', err);
+    }
+
+    // Load continuous walked borders data (run-level walking, no monotonicity nulling)
+    try {
+        const response = await fetch('data/walked_borders_continuous_1ce.json');
+        if (response.ok) {
+            terrainState.walkedBordersContinuous = await response.json();
+            console.log(`[terrain] Loaded continuous walked borders: ${Object.keys(terrainState.walkedBordersContinuous).length} territories`);
+        }
+    } catch (err) {
+        console.warn('Could not load continuous walked borders data:', err);
     }
 }
 

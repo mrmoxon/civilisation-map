@@ -142,15 +142,19 @@ class CoastlineIndex {
 
 // --- Build coastline index ---
 
+const coastlineCoords = []; // featureIdx → coordinate array
+
 function buildCoastlineIndex(coastlineGeoJSON) {
     const index = new CoastlineIndex();
     let featureIdx = 0;
     for (const feature of coastlineGeoJSON.features) {
         const geom = feature.geometry;
         if (geom.type === 'LineString') {
+            coastlineCoords[featureIdx] = geom.coordinates;
             index.addLineString(geom.coordinates, featureIdx++);
         } else if (geom.type === 'MultiLineString') {
             for (const line of geom.coordinates) {
+                coastlineCoords[featureIdx] = line;
                 index.addLineString(line, featureIdx++);
             }
         }
@@ -273,6 +277,136 @@ function classifyRing(ring, coastIndex) {
     return sharpened;
 }
 
+// --- Coastline walking functions ---
+
+// Round coordinate to 4 decimal places
+function roundCoord(c) {
+    return [Math.round(c[0] * 10000) / 10000, Math.round(c[1] * 10000) / 10000];
+}
+
+// Walk between two snap positions on the same coastline LineString.
+// Returns intermediate coastline vertices (excluding the snap endpoints themselves).
+// paramA = segIdxA + tA, paramB = segIdxB + tB
+function walkBetween(featureIdx, segA, tA, segB, tB) {
+    const coords = coastlineCoords[featureIdx];
+    if (!coords) return [];
+
+    const paramA = segA + tA;
+    const paramB = segB + tB;
+
+    const intermediates = [];
+
+    if (paramA < paramB) {
+        // Walk forward: collect coords[segA+1] through coords[segB]
+        for (let i = segA + 1; i <= segB; i++) {
+            intermediates.push(roundCoord(coords[i]));
+        }
+    } else if (paramA > paramB) {
+        // Walk backward: collect coords[segA] down to coords[segB+1]
+        for (let i = segA; i >= segB + 1; i--) {
+            intermediates.push(roundCoord(coords[i]));
+        }
+    }
+    // If paramA === paramB, no intermediates
+
+    // Cap at 500 intermediate vertices
+    if (intermediates.length > 500) {
+        const step = intermediates.length / 500;
+        const downsampled = [];
+        for (let i = 0; i < 500; i++) {
+            downsampled.push(intermediates[Math.floor(i * step)]);
+        }
+        return downsampled;
+    }
+
+    return intermediates;
+}
+
+// Walk full island perimeter (for a single blue vertex on a closed feature).
+// Returns all unique coastline vertices starting from startSeg+1, wrapping around.
+function walkFullIsland(featureIdx, startSeg, startT) {
+    const coords = coastlineCoords[featureIdx];
+    if (!coords || coords.length < 3) return [];
+
+    // Check if feature is closed (first ≈ last coordinate)
+    const first = coords[0], last = coords[coords.length - 1];
+    const dx = first[0] - last[0], dy = first[1] - last[1];
+    if (dx * dx + dy * dy > 0.0001) return []; // Not closed
+
+    const numUnique = coords.length - 1; // last coord duplicates first
+    const vertices = [];
+
+    for (let k = 0; k < numUnique; k++) {
+        const idx = (startSeg + 1 + k) % numUnique;
+        vertices.push(roundCoord(coords[idx]));
+    }
+
+    // Cap at 1000 vertices
+    if (vertices.length > 1000) {
+        const step = vertices.length / 1000;
+        const downsampled = [];
+        for (let i = 0; i < 1000; i++) {
+            downsampled.push(vertices[Math.floor(i * step)]);
+        }
+        return downsampled;
+    }
+
+    return vertices;
+}
+
+// Walk between two snap positions on a closed coastline feature, picking the shorter arc.
+// For open features, falls back to walkBetween.
+function walkBetweenShortest(featureIdx, segA, tA, segB, tB) {
+    const coords = coastlineCoords[featureIdx];
+    if (!coords || coords.length < 3) return walkBetween(featureIdx, segA, tA, segB, tB);
+
+    // Check if feature is closed
+    const first = coords[0], last = coords[coords.length - 1];
+    const dx = first[0] - last[0], dy = first[1] - last[1];
+    if (dx * dx + dy * dy > 0.0001) {
+        // Open feature — use directional walkBetween
+        return walkBetween(featureIdx, segA, tA, segB, tB);
+    }
+
+    const numUnique = coords.length - 1; // last coord duplicates first
+
+    // Collect forward intermediates: segA+1 .. segB, wrapping
+    const forward = [];
+    let fi = (segA + 1) % numUnique;
+    while (fi !== (segB + 1) % numUnique && forward.length < numUnique) {
+        forward.push(roundCoord(coords[fi]));
+        fi = (fi + 1) % numUnique;
+    }
+
+    // Collect backward intermediates: segA down to segB+1, wrapping
+    const backward = [];
+    let bi = segA;
+    const bTarget = (segB + 1) % numUnique;
+    while (bi !== bTarget && backward.length < numUnique) {
+        backward.push(roundCoord(coords[bi]));
+        bi = (bi - 1 + numUnique) % numUnique;
+    }
+
+    // Pick the shorter direction
+    let intermediates = forward.length <= backward.length ? forward : backward;
+
+    // Cap at 500 intermediates
+    if (intermediates.length > 500) {
+        const step = intermediates.length / 500;
+        const downsampled = [];
+        for (let i = 0; i < 500; i++) {
+            downsampled.push(intermediates[Math.floor(i * step)]);
+        }
+        return downsampled;
+    }
+
+    return intermediates;
+}
+
+// Store all snap infos globally for walked borders computation
+const allSnapInfos = {}; // name → [ ringIdx → snapInfos[] ]
+const allSnapInfosRaw = {}; // name → [ ringIdx → snapInfos[] ] (before monotonicity nulling)
+
 // =====================
 //        MAIN
 // =====================
@@ -361,6 +495,7 @@ for (const f of visible) {
     }
 
     const ghostRings = [];
+    if (!allSnapInfos[name]) allSnapInfos[name] = [];
     for (let r = 0; r < rings.length && r < classifications.length; r++) {
         const ring = rings[r];
         const cls = classifications[r];
@@ -376,6 +511,10 @@ for (const f of visible) {
                 snapInfos.push(null);
             }
         }
+
+        // Save raw snap infos before monotonicity nulling
+        if (!allSnapInfosRaw[name]) allSnapInfosRaw[name] = [];
+        allSnapInfosRaw[name][r] = snapInfos.map(s => s ? { ...s } : null);
 
         // Step 2: find runs of consecutive blue vertices and validate ordering
         // A "coastline parameter" = segIdx + t gives position along a LineString.
@@ -434,6 +573,7 @@ for (const f of visible) {
         }
 
         // Step 3: build output, nulling out-of-order snaps
+        // Also null out snapInfos for out-of-order vertices (for walked borders)
         const ghostRing = [];
         for (let i = 0; i < n; i++) {
             const info = snapInfos[i];
@@ -443,9 +583,11 @@ for (const f of visible) {
                 snapCount++;
             } else {
                 ghostRing.push(null);
+                if (nulled.has(i)) snapInfos[i] = null; // null out for walking
             }
         }
         ghostRings.push(ghostRing);
+        allSnapInfos[name][r] = snapInfos;
     }
     ghostOutput[name] = ghostRings;
 }
@@ -456,4 +598,263 @@ const ghostSize = fs.statSync(ghostPath).size;
 console.log(`Computed ${snapCount} snap targets in ${Date.now() - t3}ms`);
 console.log(`Reordering fix: ${reorderCount} out-of-order snaps nulled`);
 console.log(`Saved to ${ghostPath} (${(ghostSize / 1024).toFixed(0)} KB)`);
+
+// --- Walked borders: walk along coastline between consecutive snap points ---
+console.log('\nComputing walked borders...');
+const t4 = Date.now();
+const walkedOutput = {};
+let totalWalkedSegments = 0, totalOriginalSegments = 0, totalIslandWalks = 0;
+
+for (const f of visible) {
+    const name = f.properties.Name;
+    const classifications = output[name];
+    const snapInfosForTerritory = allSnapInfos[name];
+    if (!classifications || !snapInfosForTerritory) continue;
+
+    const geom = f.geometry;
+    const rings = [];
+    if (geom.type === 'Polygon') {
+        rings.push(...geom.coordinates);
+    } else if (geom.type === 'MultiPolygon') {
+        for (const poly of geom.coordinates) rings.push(...poly);
+    }
+
+    const territoryRings = [];
+    for (let r = 0; r < rings.length && r < classifications.length; r++) {
+        const ring = rings[r];
+        const cls = classifications[r];
+        const snapInfos = snapInfosForTerritory[r];
+        if (!snapInfos) { territoryRings.push([]); continue; }
+        const n = Math.min(ring.length, cls.length, snapInfos.length);
+
+        const segments = [];
+        let prevSnap = null; // { point, featureIdx, segIdx, t }
+
+        for (let i = 0; i < n; i++) {
+            const isBlue = cls[i];
+            const snap = snapInfos[i];
+            const hasValidSnap = isBlue && snap;
+
+            if (!isBlue || !hasValidSnap) {
+                // Green vertex or blue vertex with no/nulled snap — emit as original
+                segments.push({ t: 'o', c: [roundCoord(ring[i])] });
+                totalOriginalSegments++;
+                prevSnap = null;
+            } else {
+                // Blue vertex with valid snap
+                const snapPoint = roundCoord(snap.point);
+
+                if (prevSnap && prevSnap.featureIdx === snap.featureIdx) {
+                    // Same coastline feature — walk between them
+                    const intermediates = walkBetween(
+                        snap.featureIdx,
+                        prevSnap.segIdx, prevSnap.t,
+                        snap.segIdx, snap.t
+                    );
+                    const walkCoords = [roundCoord(prevSnap.point), ...intermediates, snapPoint];
+                    segments.push({ t: 'w', c: walkCoords });
+                    totalWalkedSegments++;
+                } else {
+                    // First blue in run or different feature — just emit snap point
+                    segments.push({ t: 'w', c: [snapPoint] });
+                    totalWalkedSegments++;
+                }
+                prevSnap = snap;
+            }
+        }
+
+        // Wrap-around: check if first and last valid snaps are on the same feature
+        let firstSnapIdx = -1, lastSnapIdx = -1;
+        for (let i = 0; i < n; i++) {
+            if (cls[i] && snapInfos[i]) { firstSnapIdx = i; break; }
+        }
+        for (let i = n - 1; i >= 0; i--) {
+            if (cls[i] && snapInfos[i]) { lastSnapIdx = i; break; }
+        }
+        if (firstSnapIdx >= 0 && lastSnapIdx >= 0 && firstSnapIdx !== lastSnapIdx) {
+            const firstSnap = snapInfos[firstSnapIdx];
+            const lastSnap = snapInfos[lastSnapIdx];
+            if (firstSnap.featureIdx === lastSnap.featureIdx) {
+                const wrapIntermediates = walkBetween(
+                    lastSnap.featureIdx,
+                    lastSnap.segIdx, lastSnap.t,
+                    firstSnap.segIdx, firstSnap.t
+                );
+                if (wrapIntermediates.length > 0) {
+                    const wrapCoords = [roundCoord(lastSnap.point), ...wrapIntermediates, roundCoord(firstSnap.point)];
+                    segments.push({ t: 'w', c: wrapCoords });
+                    totalWalkedSegments++;
+                }
+            }
+        }
+
+        // Island detection: find blue vertices on closed features where no adjacent
+        // blue vertex snaps to the same feature
+        const featureSnapCounts = {}; // featureIdx → count of blue vertices snapping to it
+        for (let i = 0; i < n; i++) {
+            if (cls[i] && snapInfos[i]) {
+                const fIdx = snapInfos[i].featureIdx;
+                featureSnapCounts[fIdx] = (featureSnapCounts[fIdx] || 0) + 1;
+            }
+        }
+
+        for (let i = 0; i < n; i++) {
+            if (!cls[i] || !snapInfos[i]) continue;
+            const snap = snapInfos[i];
+            const fIdx = snap.featureIdx;
+
+            // Only consider if this is the sole vertex snapping to this feature in the ring
+            if (featureSnapCounts[fIdx] !== 1) continue;
+
+            // Check if the feature is closed
+            const coords = coastlineCoords[fIdx];
+            if (!coords || coords.length < 3) continue;
+            const first = coords[0], last = coords[coords.length - 1];
+            const dx = first[0] - last[0], dy = first[1] - last[1];
+            if (dx * dx + dy * dy > 0.0001) continue; // Not closed
+
+            // Walk the full island
+            const islandVerts = walkFullIsland(fIdx, snap.segIdx, snap.t);
+            if (islandVerts.length > 0) {
+                const snapPoint = roundCoord(snap.point);
+                segments.push({ t: 'w', c: [snapPoint, ...islandVerts, snapPoint] });
+                totalIslandWalks++;
+            }
+        }
+
+        territoryRings.push(segments);
+    }
+    walkedOutput[name] = territoryRings;
+}
+
+const walkedPath = path.join(ROOT, 'data/walked_borders_1ce.json');
+fs.writeFileSync(walkedPath, JSON.stringify(walkedOutput));
+const walkedSize = fs.statSync(walkedPath).size;
+console.log(`Walked borders: ${totalWalkedSegments} walked + ${totalOriginalSegments} original segments, ${totalIslandWalks} island walks`);
+console.log(`Computed in ${Date.now() - t4}ms`);
+console.log(`Saved to ${walkedPath} (${(walkedSize / 1024).toFixed(0)} KB)`);
+
+// --- Continuous walked borders: one closed loop per ring ---
+// Walk each ring vertex-by-vertex:
+//   Green vertex → original polygon coordinate (inland boundary)
+//   Blue vertex → snap point on coastline + intermediates between consecutive blues
+// Output: { "Name": [ ring0_coords, ring1_coords, ... ] }
+// Each ring is a single coordinate array forming a closed loop.
+console.log('\nComputing continuous walked borders...');
+const t5 = Date.now();
+const contOutput = {};
+let contRings = 0, contPolylines = 0, contIslandLoops = 0;
+
+for (const f of visible) {
+    const name = f.properties.Name;
+    const classifications = output[name];
+    const rawSnaps = allSnapInfosRaw[name];
+    if (!classifications || !rawSnaps) continue;
+
+    const geom = f.geometry;
+    const rings = [];
+    if (geom.type === 'Polygon') {
+        rings.push(...geom.coordinates);
+    } else if (geom.type === 'MultiPolygon') {
+        for (const poly of geom.coordinates) rings.push(...poly);
+    }
+
+    const territoryRings = [];
+    for (let r = 0; r < rings.length && r < classifications.length; r++) {
+        const ring = rings[r];
+        const cls = classifications[r];
+        const snapInfos = rawSnaps[r];
+        if (!snapInfos) { territoryRings.push([]); continue; }
+        const n = Math.min(ring.length, cls.length, snapInfos.length);
+
+        const polylines = [];
+
+        // 1) Green segments: runs of non-blue vertices → original polygon coords
+        const greenSegments = [];
+        let greenRun = [];
+        for (let i = 0; i < n; i++) {
+            if (!cls[i] || !snapInfos[i]) {
+                greenRun.push(roundCoord(ring[i]));
+            } else {
+                if (greenRun.length >= 2) greenSegments.push(greenRun);
+                greenRun = [];
+            }
+        }
+        if (greenRun.length >= 2) greenSegments.push(greenRun);
+        for (const seg of greenSegments) polylines.push(seg);
+
+        // 2) Coastline walks: group snap points by feature, sort by param, walk
+        const groups = {}; // featureIdx → [snapInfo, ...]
+        for (let i = 0; i < n; i++) {
+            if (cls[i] && snapInfos[i]) {
+                const fIdx = snapInfos[i].featureIdx;
+                if (!groups[fIdx]) groups[fIdx] = [];
+                groups[fIdx].push(snapInfos[i]);
+            }
+        }
+
+        for (const fIdxStr of Object.keys(groups)) {
+            const fIdx = parseInt(fIdxStr);
+            const snaps = groups[fIdx];
+            const fCoords = coastlineCoords[fIdx];
+            if (!fCoords || fCoords.length < 2) continue;
+
+            const first = fCoords[0], last = fCoords[fCoords.length - 1];
+            const dx = first[0] - last[0], dy = first[1] - last[1];
+            const isClosed = dx * dx + dy * dy <= 0.0001;
+
+            if (snaps.length === 1 && isClosed) {
+                // Single snap on closed feature → full island perimeter
+                const snap = snaps[0];
+                const islandVerts = walkFullIsland(fIdx, snap.segIdx, snap.t);
+                if (islandVerts.length > 0) {
+                    const sp = roundCoord(snap.point);
+                    polylines.push([sp, ...islandVerts, sp]);
+                    contIslandLoops++;
+                }
+            } else if (snaps.length >= 2) {
+                // Sort by coastline parameter, walk forward
+                snaps.sort((a, b) => (a.segIdx + a.t) - (b.segIdx + b.t));
+                const pathCoords = [roundCoord(snaps[0].point)];
+                for (let k = 1; k < snaps.length; k++) {
+                    const intermediates = walkBetween(
+                        fIdx,
+                        snaps[k - 1].segIdx, snaps[k - 1].t,
+                        snaps[k].segIdx, snaps[k].t
+                    );
+                    pathCoords.push(...intermediates);
+                    pathCoords.push(roundCoord(snaps[k].point));
+                }
+                if (isClosed) {
+                    const lastSnap = snaps[snaps.length - 1];
+                    const firstSnap = snaps[0];
+                    const numUnique = fCoords.length - 1;
+                    const wrapIntermediates = [];
+                    let wi = (lastSnap.segIdx + 1) % numUnique;
+                    const wTarget = (firstSnap.segIdx + 1) % numUnique;
+                    while (wi !== wTarget && wrapIntermediates.length < 500) {
+                        wrapIntermediates.push(roundCoord(fCoords[wi]));
+                        wi = (wi + 1) % numUnique;
+                    }
+                    pathCoords.push(...wrapIntermediates);
+                    pathCoords.push(roundCoord(firstSnap.point));
+                    contIslandLoops++;
+                }
+                polylines.push(pathCoords);
+                contPolylines++;
+            }
+        }
+
+        territoryRings.push(polylines);
+        if (polylines.length > 0) contRings++;
+    }
+    contOutput[name] = territoryRings;
+}
+
+const contPath = path.join(ROOT, 'data/walked_borders_continuous_1ce.json');
+fs.writeFileSync(contPath, JSON.stringify(contOutput));
+const contSize = fs.statSync(contPath).size;
+console.log(`Continuous walked borders: ${contRings} rings, ${contPolylines} coast polylines, ${contIslandLoops} island loops`);
+console.log(`Computed in ${Date.now() - t5}ms`);
+console.log(`Saved to ${contPath} (${(contSize / 1024).toFixed(0)} KB)`);
 console.log('Done!');

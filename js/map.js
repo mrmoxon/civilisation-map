@@ -399,6 +399,105 @@ export function updateMap(year) {
         console.log(`[diagnostic] Snap ghost: ${lineCount} connector lines`);
     }
 
+    // Coastline walk overlay — shows walked coastline polylines
+    if (state.coastlineWalkLayer && !state.coastlineWalk) {
+        state.map.removeLayer(state.coastlineWalkLayer);
+        state.coastlineWalkLayer = null;
+    }
+    if (state.coastlineWalk && !state.coastlineWalkLayer && terrainState.walkedBorders && state.showPolities) {
+        const walkData = terrainState.walkedBorders;
+        state.coastlineWalkLayer = L.layerGroup();
+        let polylineCount = 0, dotCount = 0;
+        const showGhostDots = state.snapGhost; // walk-ghost mode shows green original dots
+
+        for (const f of visiblePolities) {
+            const name = f.properties.Name;
+            const rings = walkData[name];
+            if (!rings) continue;
+
+            for (const segments of rings) {
+                for (const seg of segments) {
+                    if (seg.t === 'w' && seg.c.length >= 2) {
+                        // Walked coastline polyline
+                        const latLngs = seg.c.map(c => [c[1], c[0]]);
+                        L.polyline(latLngs, {
+                            color: '#00ddff',
+                            weight: 2,
+                            opacity: 0.8,
+                            interactive: false,
+                            pane: 'diagnosticPane'
+                        }).addTo(state.coastlineWalkLayer);
+                        polylineCount++;
+
+                        // Small dots at each intermediate vertex (skip first and last which are snap endpoints)
+                        for (let k = 1; k < seg.c.length - 1; k++) {
+                            L.circleMarker([seg.c[k][1], seg.c[k][0]], {
+                                radius: 1.5,
+                                fillColor: '#00ddff',
+                                color: '#009dbb',
+                                weight: 0.5,
+                                fillOpacity: 0.7,
+                                interactive: false,
+                                pane: 'diagnosticPane'
+                            }).addTo(state.coastlineWalkLayer);
+                            dotCount++;
+                        }
+                    } else if (seg.t === 'o' && showGhostDots) {
+                        // Original vertex — small green dot (only in walk-ghost mode)
+                        for (const c of seg.c) {
+                            L.circleMarker([c[1], c[0]], {
+                                radius: 2,
+                                fillColor: '#00ff00',
+                                color: '#006600',
+                                weight: 0.5,
+                                fillOpacity: 0.6,
+                                interactive: false,
+                                pane: 'diagnosticPane'
+                            }).addTo(state.coastlineWalkLayer);
+                        }
+                    }
+                }
+            }
+        }
+        state.coastlineWalkLayer.addTo(state.map);
+        console.log(`[diagnostic] Coastline walk: ${polylineCount} polylines, ${dotCount} intermediate dots`);
+    }
+
+    // Continuous coastline walk overlay — independent polylines per coastline feature
+    if (state.coastlineWalkContinuousLayer && !state.coastlineWalkContinuous) {
+        state.map.removeLayer(state.coastlineWalkContinuousLayer);
+        state.coastlineWalkContinuousLayer = null;
+    }
+    if (state.coastlineWalkContinuous && !state.coastlineWalkContinuousLayer && terrainState.walkedBordersContinuous && state.showPolities) {
+        const walkData = terrainState.walkedBordersContinuous;
+        state.coastlineWalkContinuousLayer = L.layerGroup();
+        let ringCount = 0;
+
+        for (const f of visiblePolities) {
+            const name = f.properties.Name;
+            const rings = walkData[name];
+            if (!rings) continue;
+
+            for (const ringPolylines of rings) {
+                if (!ringPolylines) continue;
+                for (const coords of ringPolylines) {
+                    if (!coords || coords.length < 2) continue;
+                    const latLngs = coords.map(c => [c[1], c[0]]);
+                    L.polyline(latLngs, {
+                        color: '#00ffaa',
+                        weight: 2,
+                        opacity: 0.8,
+                        interactive: false,
+                        pane: 'diagnosticPane'
+                    }).addTo(state.coastlineWalkContinuousLayer);
+                    ringCount++;
+                }
+            }
+        }
+        state.coastlineWalkContinuousLayer.addTo(state.map);
+        console.log(`[diagnostic] Continuous walk: ${ringCount} rings`);
+    }
+
     // Update leaderboard
     updateLeaderboard(visiblePolities, year);
     _t.leaderboardDone = performance.now();
