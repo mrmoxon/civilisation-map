@@ -1,7 +1,11 @@
 // Leaderboard rendering and sorting
 import { state } from './state.js';
-import { getColor, formatArea, formatAge, formatBillions, getWorldStatsForYear, countCitiesInPolity } from './utils.js';
+import { getColor, formatArea, formatAge, formatBillions, getWorldStatsForYear, countCitiesInPolity, formatYear, getCentroid } from './utils.js';
 import { showPointInfo, showLocationJumpIndicator } from './info-panel.js';
+
+// ─── Search index & cache ─────────────────────────────────────────
+let politySearchIndex = null;
+let searchDebounceTimer = null;
 
 // Update stats panel separately
 export function updateStatsPanel(visiblePolities, year) {
@@ -151,14 +155,14 @@ export function updateLeaderboard(visiblePolities, year) {
     });
 
     // Sort based on current selection
-    if (state.leaderboardSort === 'area') {
-        polities.sort((a, b) => a.rankArea - b.rankArea);
-    } else if (state.leaderboardSort === 'cities') {
+    if (state.leaderboardSort === 'cities') {
         polities.sort((a, b) => a.rankCities - b.rankCities);
     } else if (state.leaderboardSort === 'age') {
         polities.sort((a, b) => a.rankAge - b.rankAge);
+    } else {
+        // Default to area
+        polities.sort((a, b) => a.rankArea - b.rankArea);
     }
-    // For 'all', sort by area as default
 
     const valueFormatter = {
         area: p => formatArea(p.area),
@@ -169,29 +173,13 @@ export function updateLeaderboard(visiblePolities, year) {
     const allPolities = polities; // Load all territories
     const expandedClass = state.leaderboardExpanded ? 'expanded' : '';
 
-    let listHtml;
-    if (state.leaderboardSort === 'all') {
-        // "All" view with columns
-        listHtml = allPolities.map(p => `
-            <div class="leaderboard-item leaderboard-item-all" data-name="${p.name}" style="--polity-color: ${p.color}">
-                <span class="leaderboard-name" title="${p.name}">${p.name}</span>
-                <div class="leaderboard-ranks">
-                    <span class="leaderboard-rank-cell" title="Area: ${formatArea(p.area)}">#${p.rankArea}</span>
-                    <span class="leaderboard-rank-cell" title="Cities: ${p.cities}">#${p.rankCities}</span>
-                    <span class="leaderboard-rank-cell" title="Age: ${formatAge(p.age)}">#${p.rankAge}</span>
-                </div>
-            </div>
-        `).join('');
-    } else {
-        // Single metric view
-        listHtml = allPolities.map((p, i) => `
-            <div class="leaderboard-item" data-name="${p.name}" style="--polity-color: ${p.color}">
-                <span class="leaderboard-rank">${i + 1}</span>
-                <span class="leaderboard-name" title="${p.name}">${p.name}</span>
-                <span class="leaderboard-value">${valueFormatter[state.leaderboardSort](p)}</span>
-            </div>
-        `).join('');
-    }
+    const listHtml = allPolities.map((p, i) => `
+        <div class="leaderboard-item" data-name="${p.name}" style="--polity-color: ${p.color}">
+            <span class="leaderboard-rank">${i + 1}</span>
+            <span class="leaderboard-name" title="${p.name}">${p.name}</span>
+            <span class="leaderboard-value">${valueFormatter[state.leaderboardSort](p)}</span>
+        </div>
+    `).join('');
 
     const showMoreBtn = allPolities.length > 5 ? `
         <div class="leaderboard-toggle" id="leaderboard-expand">
@@ -200,21 +188,8 @@ export function updateLeaderboard(visiblePolities, year) {
         </div>
     ` : '';
 
-    // Header row for "all" view
-    const headerRow = state.leaderboardSort === 'all' ? `
-        <div class="leaderboard-header-row">
-            <span class="leaderboard-header-spacer"></span>
-            <span class="leaderboard-header-name">Empire</span>
-            <div class="leaderboard-header-ranks">
-                <span class="leaderboard-header-cell">Area</span>
-                <span class="leaderboard-header-cell">Cities</span>
-                <span class="leaderboard-header-cell">Age</span>
-            </div>
-        </div>
-    ` : '';
-
-    const dividerText = state.leaderboardSort === 'all' ? 'All metrics' : 'Ranked by ' + state.leaderboardSort;
-    content.innerHTML = `<div class="leaderboard-divider">${dividerText}</div>` + headerRow +
+    const dividerText = 'Ranked by ' + state.leaderboardSort;
+    content.innerHTML = `<div class="leaderboard-divider">${dividerText}</div>` +
         `<div class="leaderboard-list ${expandedClass}">${listHtml}</div>` + showMoreBtn;
 
     content.querySelectorAll('.leaderboard-item').forEach(item => {
@@ -285,6 +260,226 @@ export function updateLeaderboard(visiblePolities, year) {
     }
 }
 
+// ─── Search functions ──────────────────────────────────────────────
+
+function buildPolitySearchIndex() {
+    if (politySearchIndex) return politySearchIndex;
+    const byName = {};
+    for (const p of state.allPolities) {
+        const name = p.properties.Name;
+        // Skip parenthetical sub-entries like "Roman Empire (Western)"
+        if (/\(.*\)$/.test(name)) continue;
+        if (!byName[name]) {
+            byName[name] = {
+                name,
+                fromYear: p.properties.FromYear,
+                toYear: p.properties.ToYear,
+                color: getColor(name)
+            };
+        } else {
+            byName[name].fromYear = Math.min(byName[name].fromYear, p.properties.FromYear);
+            byName[name].toYear = Math.max(byName[name].toYear, p.properties.ToYear);
+        }
+    }
+    politySearchIndex = Object.values(byName);
+    return politySearchIndex;
+}
+
+function executeSearch(query, index) {
+    const q = query.toLowerCase().trim();
+    if (!q) return [];
+
+    const scored = [];
+    for (const entry of index) {
+        const lower = entry.name.toLowerCase();
+        const idx = lower.indexOf(q);
+        if (idx === -1) continue;
+
+        // Scoring: prefix > word-start > contains
+        let score = 0;
+        if (idx === 0) {
+            score = 100; // prefix match
+        } else if (lower[idx - 1] === ' ' || lower[idx - 1] === '-') {
+            score = 70; // word-start match
+        } else {
+            score = 30; // contains
+        }
+
+        // Boost currently alive polities
+        const alive = state.currentYear >= entry.fromYear && state.currentYear <= entry.toYear;
+        if (alive) score += 20;
+
+        scored.push({ ...entry, score, alive });
+    }
+
+    scored.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+    return scored.slice(0, 20);
+}
+
+function highlightMatch(text, query) {
+    const idx = text.toLowerCase().indexOf(query.toLowerCase());
+    if (idx === -1) return text;
+    const before = text.slice(0, idx);
+    const match = text.slice(idx, idx + query.length);
+    const after = text.slice(idx + query.length);
+    return `${before}<mark>${match}</mark>${after}`;
+}
+
+function renderSearchResults(results, query) {
+    const container = document.getElementById('search-results');
+    if (!container) return;
+
+    if (results.length === 0) {
+        container.innerHTML = '<div class="search-no-results">No polities found</div>';
+        container.classList.remove('hidden');
+        return;
+    }
+
+    container.innerHTML = results.map((r, i) => {
+        const period = `${formatYear(r.fromYear)} — ${formatYear(r.toYear)}`;
+        const badgeClass = r.alive ? 'active' : 'historical';
+        const badgeText = r.alive ? 'Active' : 'Historical';
+        return `<div class="search-result-item${i === state.searchSelectedIndex ? ' selected' : ''}" data-index="${i}" style="--polity-color: ${r.color}">
+            <div class="search-result-info">
+                <div class="search-result-name">${highlightMatch(r.name, query)}</div>
+                <div class="search-result-period">${period}</div>
+            </div>
+            <span class="search-result-badge ${badgeClass}">${badgeText}</span>
+        </div>`;
+    }).join('');
+
+    container.classList.remove('hidden');
+
+    // Wire click handlers
+    container.querySelectorAll('.search-result-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const idx = parseInt(item.dataset.index);
+            navigateToSearchResult(results[idx]);
+        });
+    });
+}
+
+function navigateToSearchResult(entry) {
+    if (!state.map) return;
+
+    const currentCenter = state.map.getCenter();
+    const currentZoom = state.map.getZoom();
+
+    // Determine the year to look at
+    let targetYear = state.currentYear;
+    const alive = state.currentYear >= entry.fromYear && state.currentYear <= entry.toYear;
+
+    if (!alive) {
+        // Jump timeline to midpoint of polity's existence
+        targetYear = Math.round((entry.fromYear + entry.toYear) / 2);
+
+        // Set the timeline
+        const timeline = document.getElementById('timeline');
+        timeline.value = targetYear;
+
+        // Update year inputs
+        const input = document.getElementById('year-input');
+        const select = document.getElementById('era-select');
+        if (targetYear < 0) {
+            input.value = Math.abs(targetYear);
+            select.value = 'bce';
+        } else {
+            input.value = targetYear;
+            select.value = 'ce';
+        }
+
+        // Update the map
+        if (window.updateMapWithGraph) {
+            window.updateMapWithGraph(targetYear);
+        }
+    }
+
+    // Find the polity geometry at the target year to get centroid
+    const polity = state.allPolities.find(p =>
+        p.properties.Name === entry.name &&
+        targetYear >= p.properties.FromYear &&
+        targetYear <= p.properties.ToYear
+    );
+
+    if (polity) {
+        const centroid = getCentroid(polity.geometry);
+        if (centroid) {
+            // Save starting point if first navigation
+            if (state.locationHistory.length === 0) {
+                state.locationHistory.push({
+                    coords: [currentCenter.lat, currentCenter.lng],
+                    zoom: currentZoom,
+                    territoryName: 'Starting point',
+                    territoryColor: '#888'
+                });
+            }
+
+            state.locationHistory.push({
+                coords: [centroid.lat, centroid.lng],
+                zoom: currentZoom,
+                territoryName: entry.name,
+                territoryColor: entry.color
+            });
+
+            state.map.setView([centroid.lat, centroid.lng], currentZoom);
+            showPointInfo(centroid.lng, centroid.lat);
+            showLocationJumpIndicator();
+        }
+    }
+
+    closeSearch();
+}
+
+function openSearch() {
+    state.searchOpen = true;
+    state.searchQuery = '';
+    state.searchSelectedIndex = -1;
+
+    // Close filter panel if open
+    if (state.filterPanelOpen) {
+        state.filterPanelOpen = false;
+        document.getElementById('leaderboard-filters')?.classList.add('hidden');
+        document.getElementById('filter-btn')?.classList.remove('active');
+    }
+
+    document.getElementById('search-btn')?.classList.add('active');
+    document.getElementById('leaderboard-search')?.classList.remove('hidden');
+    document.getElementById('leaderboard-content')?.classList.add('hidden');
+    document.getElementById('search-results')?.classList.add('hidden');
+
+    const input = document.getElementById('search-input');
+    if (input) {
+        input.value = '';
+        requestAnimationFrame(() => input.focus());
+    }
+    document.getElementById('search-clear')?.classList.add('hidden');
+}
+
+function closeSearch() {
+    state.searchOpen = false;
+    state.searchQuery = '';
+    state.searchSelectedIndex = -1;
+
+    document.getElementById('search-btn')?.classList.remove('active');
+    document.getElementById('leaderboard-search')?.classList.add('hidden');
+    document.getElementById('search-results')?.classList.add('hidden');
+    document.getElementById('leaderboard-content')?.classList.remove('hidden');
+
+    const input = document.getElementById('search-input');
+    if (input) input.value = '';
+}
+
+function updateSelectedResult(items) {
+    items.forEach((item, i) => {
+        item.classList.toggle('selected', i === state.searchSelectedIndex);
+    });
+
+    // Scroll selected into view
+    if (state.searchSelectedIndex >= 0 && items[state.searchSelectedIndex]) {
+        items[state.searchSelectedIndex].scrollIntoView({ block: 'nearest' });
+    }
+}
+
 export function setupLeaderboard() {
     // Stats toggle (from bottom bar)
     const statsToggleBtn = document.getElementById('toggle-stats');
@@ -308,11 +503,90 @@ export function setupLeaderboard() {
         });
     }
 
-    // Filter button toggle
+    // Search button toggle
+    const searchBtn = document.getElementById('search-btn');
+    if (searchBtn) {
+        searchBtn.addEventListener('click', () => {
+            if (state.searchOpen) {
+                closeSearch();
+            } else {
+                openSearch();
+            }
+        });
+    }
+
+    // Search input handling
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchDebounceTimer);
+            const query = searchInput.value;
+            state.searchQuery = query;
+            state.searchSelectedIndex = -1;
+
+            document.getElementById('search-clear')?.classList.toggle('hidden', !query);
+
+            searchDebounceTimer = setTimeout(() => {
+                if (!query.trim()) {
+                    document.getElementById('search-results')?.classList.add('hidden');
+                    return;
+                }
+                const index = buildPolitySearchIndex();
+                const results = executeSearch(query, index);
+                renderSearchResults(results, query);
+            }, 150);
+        });
+
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeSearch();
+                return;
+            }
+
+            const items = document.querySelectorAll('.search-result-item');
+            if (!items.length) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                state.searchSelectedIndex = Math.min(state.searchSelectedIndex + 1, items.length - 1);
+                updateSelectedResult(items);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                state.searchSelectedIndex = Math.max(state.searchSelectedIndex - 1, -1);
+                updateSelectedResult(items);
+            } else if (e.key === 'Enter' && state.searchSelectedIndex >= 0) {
+                e.preventDefault();
+                const index = buildPolitySearchIndex();
+                const results = executeSearch(state.searchQuery, index);
+                if (results[state.searchSelectedIndex]) {
+                    navigateToSearchResult(results[state.searchSelectedIndex]);
+                }
+            }
+        });
+    }
+
+    // Search clear button
+    const searchClear = document.getElementById('search-clear');
+    if (searchClear) {
+        searchClear.addEventListener('click', () => {
+            const input = document.getElementById('search-input');
+            if (input) {
+                input.value = '';
+                input.dispatchEvent(new Event('input'));
+                input.focus();
+            }
+        });
+    }
+
+    // Filter button — close search if open (mutually exclusive)
     const filterBtn = document.getElementById('filter-btn');
     const filtersPanel = document.getElementById('leaderboard-filters');
     if (filterBtn && filtersPanel) {
         filterBtn.addEventListener('click', function() {
+            // Close search if open
+            if (state.searchOpen) {
+                closeSearch();
+            }
             state.filterPanelOpen = !state.filterPanelOpen;
             filtersPanel.classList.toggle('hidden', !state.filterPanelOpen);
             this.classList.toggle('active', state.filterPanelOpen);

@@ -4,6 +4,44 @@ import { getColor, formatYear, formatPopulation, getPopulationForYear, getCityRa
 import { showPolityInfo, showCompoundInfo, hideInfo, pinInfoPanel } from './info-panel.js';
 import { updateLeaderboard } from './leaderboard.js';
 import { terrainState } from './terrain.js';
+import { recordMapZoom } from './perf.js';
+
+const TAG_PERF = 'color: #0bf; font-weight: bold';
+const NORMAL_PERF = 'color: inherit';
+
+// Binary search: find rightmost index where fromYears[i] <= year
+function upperBound(fromYears, year) {
+    let lo = 0, hi = fromYears.length;
+    while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (fromYears[mid] <= year) lo = mid + 1;
+        else hi = mid;
+    }
+    return lo; // all entries [0..lo-1] have FromYear <= year
+}
+
+// Get visible polities using temporal index (binary search + ToYear check)
+// Falls back to linear scan if index isn't built yet
+function getVisiblePolities(year) {
+    const idx = state.polityIndex;
+    if (!idx) {
+        // Fallback: linear scan (before index is built)
+        return state.allPolities.filter(f => {
+            const name = f.properties.Name;
+            if (name.startsWith('(') && name.endsWith(')')) return false;
+            return year >= f.properties.FromYear && year <= f.properties.ToYear;
+        });
+    }
+
+    const cutoff = upperBound(idx.fromYears, year);
+    const result = [];
+    for (let i = 0; i < cutoff; i++) {
+        if (idx.sorted[i].properties.ToYear >= year) {
+            result.push(idx.sorted[i]);
+        }
+    }
+    return result;
+}
 
 // City hit detection layer
 let cityHitLayer = null;
@@ -80,6 +118,10 @@ export function initMap() {
         zoomControl: false
     });
 
+    // Canvas renderer for polity layer only (faster than SVG for many polygons,
+    // but can't be used globally as it blocks mouse events on lower panes)
+    state.polityRenderer = L.canvas({ pane: 'polityPane' });
+
     // Create custom panes with specific z-indexes for proper layer ordering
     // Order (bottom to top): polities < rivers < riverHits < cities < cityHits < civNames
     state.map.createPane('polityPane');
@@ -100,6 +142,9 @@ export function initMap() {
     state.map.createPane('civNamePane');
     state.map.getPane('civNamePane').style.zIndex = 470;
 
+    state.map.createPane('diagnosticPane');
+    state.map.getPane('diagnosticPane').style.zIndex = 480;
+
     // Store base layer reference for terrain module to manage (satellite default)
     state.baseLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         attribution: '&copy; Esri, Maxar, Earthstar',
@@ -108,6 +153,7 @@ export function initMap() {
 
     // Update city marker sizes on zoom change
     state.map.on('zoomend', () => {
+        const t0 = performance.now();
         if (!state.cityLayer || !window.cityHitLayer) return;
 
         const zoomScale = getZoomScale(state.map.getZoom());
@@ -125,29 +171,27 @@ export function initMap() {
                 hitMarker.setRadius(hitMarker.cityData.baseHitRadius * zoomScale);
             }
         });
+
+        recordMapZoom(performance.now() - t0);
     });
 
     // Note: Click handler for unpin is set up in app.js to avoid circular dependency
 }
 
 export function updateMap(year) {
+    const _t = {};
+    _t.start = performance.now();
+
     state.currentYear = year;
     const yearText = formatYear(year);
     document.getElementById('year-display').textContent = yearText;
     const yearMini = document.getElementById('year-display-mini');
     if (yearMini) yearMini.textContent = yearText;
 
-    // Get all visible polities for this year
-    // Filter out parenthetical entries (composite/aggregate representations like "(Roman Empire)")
-    // These are duplicates of the actual polities and cause color flickering
-    const visiblePolities = state.allPolities.filter(f => {
-        const from = f.properties.FromYear;
-        const to = f.properties.ToYear;
-        const name = f.properties.Name;
-        // Skip parenthetical entries - they are composite representations
-        if (name.startsWith('(') && name.endsWith(')')) return false;
-        return year >= from && year <= to;
-    });
+    // Get all visible polities for this year using temporal index (binary search)
+    _t.filter = performance.now();
+    const visiblePolities = getVisiblePolities(year);
+    _t.filterDone = performance.now();
 
     // Update polities layer
     if (state.polityLayer) {
@@ -164,6 +208,7 @@ export function updateMap(year) {
             features: visiblePolities
         }, {
             pane: 'polityPane',
+            renderer: state.polityRenderer,
             style: feature => ({
                 fillColor: getColor(feature.properties.Name),
                 weight: 1,
@@ -249,9 +294,114 @@ export function updateMap(year) {
     } else {
         document.getElementById('polity-count').textContent = '0';
     }
+    _t.polityDone = performance.now();
+
+    // Vertex diagnostic overlay — only build once (precomputed for 1 CE)
+    if (state.vertexDiagnosticLayer && !state.vertexDiagnostic) {
+        state.map.removeLayer(state.vertexDiagnosticLayer);
+        state.vertexDiagnosticLayer = null;
+    }
+    if (state.vertexDiagnostic && !state.vertexDiagnosticLayer && terrainState.vertexDiagnostic && state.showPolities) {
+        const diagData = terrainState.vertexDiagnostic;
+        state.vertexDiagnosticLayer = L.layerGroup();
+        let inlandCount = 0, coastalCount = 0;
+        for (const f of visiblePolities) {
+            const name = f.properties.Name;
+            const classifications = diagData[name];
+            if (!classifications) continue;
+            const geom = f.geometry;
+            const rings = [];
+            if (geom.type === 'Polygon') {
+                rings.push(...geom.coordinates);
+            } else if (geom.type === 'MultiPolygon') {
+                for (const poly of geom.coordinates) rings.push(...poly);
+            }
+            for (let r = 0; r < rings.length && r < classifications.length; r++) {
+                const ring = rings[r];
+                const cls = classifications[r];
+                for (let i = 0; i < ring.length && i < cls.length; i++) {
+                    const coastal = cls[i];
+                    const fillColor = coastal ? '#00aaff' : '#00ff00';
+                    const strokeColor = coastal ? '#0044aa' : '#006600';
+                    if (coastal) coastalCount++; else inlandCount++;
+                    L.marker([ring[i][1], ring[i][0]], {
+                        interactive: false,
+                        pane: 'diagnosticPane',
+                        icon: L.divIcon({
+                            className: '',
+                            iconSize: [8, 8],
+                            iconAnchor: [4, 4],
+                            html: `<div style="width:8px;height:8px;border-radius:50%;background:${fillColor};border:1px solid ${strokeColor};opacity:0.9"></div>`
+                        })
+                    }).addTo(state.vertexDiagnosticLayer);
+                }
+            }
+        }
+        state.vertexDiagnosticLayer.addTo(state.map);
+        console.log(`[diagnostic] ${inlandCount} inland (green) + ${coastalCount} coastal (blue) = ${inlandCount + coastalCount} vertices`);
+    }
+
+    // Snap ghost overlay — shows where blue vertices snap to on the coastline
+    if (state.snapGhostLayer && !state.snapGhost) {
+        state.map.removeLayer(state.snapGhostLayer);
+        state.snapGhostLayer = null;
+    }
+    if (state.snapGhost && !state.snapGhostLayer && terrainState.snapGhost && terrainState.vertexDiagnostic && state.showPolities) {
+        const diagData = terrainState.vertexDiagnostic;
+        const ghostData = terrainState.snapGhost;
+        state.snapGhostLayer = L.layerGroup();
+        let lineCount = 0;
+        for (const f of visiblePolities) {
+            const name = f.properties.Name;
+            const classifications = diagData[name];
+            const ghosts = ghostData[name];
+            if (!classifications || !ghosts) continue;
+            const geom = f.geometry;
+            const rings = [];
+            if (geom.type === 'Polygon') {
+                rings.push(...geom.coordinates);
+            } else if (geom.type === 'MultiPolygon') {
+                for (const poly of geom.coordinates) rings.push(...poly);
+            }
+            for (let r = 0; r < rings.length && r < classifications.length && r < ghosts.length; r++) {
+                const ring = rings[r];
+                const cls = classifications[r];
+                const ghostRing = ghosts[r];
+                for (let i = 0; i < ring.length && i < cls.length && i < ghostRing.length; i++) {
+                    if (!cls[i] || !ghostRing[i]) continue; // green or no snap target
+                    const origLat = ring[i][1], origLon = ring[i][0];
+                    const snapLon = ghostRing[i][0], snapLat = ghostRing[i][1];
+                    // Connector line: original → snapped
+                    L.polyline([[origLat, origLon], [snapLat, snapLon]], {
+                        color: '#ff6600',
+                        weight: 1.5,
+                        opacity: 0.7,
+                        dashArray: '4,3',
+                        interactive: false,
+                        pane: 'diagnosticPane'
+                    }).addTo(state.snapGhostLayer);
+                    // Snapped position dot (cyan)
+                    L.marker([snapLat, snapLon], {
+                        interactive: false,
+                        pane: 'diagnosticPane',
+                        icon: L.divIcon({
+                            className: '',
+                            iconSize: [6, 6],
+                            iconAnchor: [3, 3],
+                            html: '<div style="width:6px;height:6px;border-radius:50%;background:#00ffdd;border:1px solid #009988;opacity:0.9"></div>'
+                        })
+                    }).addTo(state.snapGhostLayer);
+                    lineCount++;
+                }
+            }
+        }
+        state.snapGhostLayer.addTo(state.map);
+        console.log(`[diagnostic] Snap ghost: ${lineCount} connector lines`);
+    }
 
     // Update leaderboard
     updateLeaderboard(visiblePolities, year);
+    _t.leaderboardDone = performance.now();
 
     // Update cities
     if (state.cityLayer) {
@@ -485,15 +635,30 @@ export function updateMap(year) {
         window.cityHitLayer = cityHitLayer; // Expose for bringDataLayersToFront
     }
 
+    _t.cityDone = performance.now();
+
     document.getElementById('city-count').textContent = cityCount;
     document.getElementById('total-population').textContent = formatPopulation(totalPop);
 
     // Update civilization name labels
     updateCivLabels(visiblePolities);
+    _t.labelsDone = performance.now();
 
     // Ensure proper layer ordering (rivers above polities, cities on top)
     if (window.bringDataLayersToFront) {
         window.bringDataLayersToFront();
+    }
+    _t.end = performance.now();
+
+    // Log breakdown for first 3 calls, then every 20th
+    if (!updateMap._callCount) updateMap._callCount = 0;
+    updateMap._callCount++;
+    if (updateMap._callCount <= 3 || updateMap._callCount % 20 === 0) {
+        const f = ms => ms < 1 ? '<1ms' : ms.toFixed(1) + 'ms';
+        console.log(
+            `%c[perf]%c updateMap #${updateMap._callCount} (${visiblePolities.length} pol, ${cityCount} cities): filter ${f(_t.filterDone - _t.filter)} | polities ${f(_t.polityDone - _t.filterDone)} | leaderboard ${f(_t.leaderboardDone - _t.polityDone)} | cities ${f(_t.cityDone - _t.leaderboardDone)} | labels ${f(_t.labelsDone - _t.cityDone)} | total ${f(_t.end - _t.start)}`,
+            TAG_PERF, NORMAL_PERF
+        );
     }
 
     return visiblePolities;
@@ -593,13 +758,7 @@ export function updateCityLayer() {
 export function resetCitySelection() {
     if (state.selectedCity && cityHitLayer) {
         const year = state.currentYear;
-        const visiblePolities = state.allPolities.filter(f => {
-            const name = f.properties.Name;
-            if (name.startsWith('(') && name.endsWith(')')) return false;
-            const from = f.properties.FromYear;
-            const to = f.properties.ToYear;
-            return year >= from && year <= to;
-        });
+        const visiblePolities = getVisiblePolities(year);
 
         cityHitLayer.eachLayer(layer => {
             if (layer.cityData && layer.cityData.city === state.selectedCity) {

@@ -124,6 +124,9 @@ export const terrainState = {
     coastlinesData: null,
     coastlinesDetailedData: null,
     coastlinesStandardData: null,
+    regionsData: null,
+    vertexDiagnostic: null,
+    snapGhost: null,
     riverDetailLevel: 6,
     riverStyle: 'strong',
     riverHover: 'on',
@@ -1155,6 +1158,115 @@ function renderOceansLayer() {
     terrainState.oceansLayer.bringToBack();
 }
 
+// Diagnostic: show the Sargasso Sea ring / North Atlantic hole vertices in red
+let sargassoDiagLayer = null;
+function showSargassoDiagnostic() {
+    // Remove previous diagnostic
+    if (sargassoDiagLayer) {
+        state.map.removeLayer(sargassoDiagLayer);
+        sargassoDiagLayer = null;
+    }
+
+    if (!terrainState.marineData?.features) {
+        console.warn('[diagnostic] No marine data loaded');
+        return;
+    }
+
+    sargassoDiagLayer = L.layerGroup();
+
+    let sargassoRing = null;
+    let atlanticHole = null;
+
+    for (const feat of terrainState.marineData.features) {
+        const name = feat['properties']['name'] || '';
+        if (name === 'Sargasso Sea') {
+            sargassoRing = feat.geometry.coordinates[0];
+        }
+        if (name === 'North Atlantic Ocean') {
+            // Find hole that matches Sargasso extents (lon ~ -70 to -50, lat ~ 20 to 35)
+            const rings = feat.geometry.coordinates;
+            for (let i = 1; i < rings.length; i++) {
+                const lons = rings[i].map(c => c[0]);
+                const lats = rings[i].map(c => c[1]);
+                const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+                const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+                if (minLon < -65 && maxLon > -55 && minLat < 22 && maxLat > 33) {
+                    atlanticHole = rings[i];
+                    console.log(`[diagnostic] Found North Atlantic hole at ring index ${i} (${rings[i].length} vertices)`);
+                    break;
+                }
+            }
+        }
+    }
+
+    // Draw Sargasso Sea outer ring in bright red
+    if (sargassoRing) {
+        const latLngs = sargassoRing.map(c => [c[1], c[0]]);
+        L.polyline(latLngs, { color: '#ff2222', weight: 3, opacity: 0.9, dashArray: '8,4' }).addTo(sargassoDiagLayer);
+
+        sargassoRing.forEach((coord, i) => {
+            const shade = Math.round(255 - (i / sargassoRing.length) * 120);
+            const fillColor = `rgb(${shade}, ${Math.round(shade * 0.15)}, ${Math.round(shade * 0.15)})`;
+            const marker = L.circleMarker([coord[1], coord[0]], {
+                radius: 7,
+                fillColor: fillColor,
+                color: '#cc0000',
+                weight: 2,
+                fillOpacity: 0.95
+            }).bindTooltip(`Sargasso vertex ${i}<br>lon: ${coord[0].toFixed(4)}<br>lat: ${coord[1].toFixed(4)}`, { sticky: true });
+            marker.addTo(sargassoDiagLayer);
+        });
+        console.log(`[diagnostic] Sargasso Sea ring: ${sargassoRing.length} vertices (bright red, dashed line)`);
+    }
+
+    // Draw North Atlantic hole in dark red / maroon
+    if (atlanticHole) {
+        const latLngs = atlanticHole.map(c => [c[1], c[0]]);
+        L.polyline(latLngs, { color: '#880000', weight: 2, opacity: 0.8 }).addTo(sargassoDiagLayer);
+
+        atlanticHole.forEach((coord, i) => {
+            const shade = Math.round(180 - (i / atlanticHole.length) * 80);
+            const fillColor = `rgb(${shade}, ${Math.round(shade * 0.2)}, ${Math.round(shade * 0.3)})`;
+            const marker = L.circleMarker([coord[1], coord[0]], {
+                radius: 5,
+                fillColor: fillColor,
+                color: '#660000',
+                weight: 1.5,
+                fillOpacity: 0.9
+            }).bindTooltip(`Atlantic hole vertex ${i}<br>lon: ${coord[0].toFixed(4)}<br>lat: ${coord[1].toFixed(4)}`, { sticky: true });
+            marker.addTo(sargassoDiagLayer);
+        });
+        console.log(`[diagnostic] North Atlantic hole: ${atlanticHole.length} vertices (dark red, solid line)`);
+    }
+
+    // Add Bermuda reference point
+    L.circleMarker([32.32, -64.78], {
+        radius: 8,
+        fillColor: '#ffaa00',
+        color: '#ff6600',
+        weight: 2,
+        fillOpacity: 0.9
+    }).bindTooltip('Bermuda (reference)').addTo(sargassoDiagLayer);
+
+    sargassoDiagLayer.addTo(state.map);
+
+    // Pan to the area
+    state.map.fitBounds([[20, -72], [36, -48]], { padding: [30, 30] });
+
+    console.log('[diagnostic] Sargasso/Bermuda ring diagnostic active. Call hideSargassoDiagnostic() to remove.');
+}
+
+function hideSargassoDiagnostic() {
+    if (sargassoDiagLayer) {
+        state.map.removeLayer(sargassoDiagLayer);
+        sargassoDiagLayer = null;
+        console.log('[diagnostic] Sargasso diagnostic removed.');
+    }
+}
+
+window.showSargassoDiagnostic = showSargassoDiagnostic;
+window.hideSargassoDiagnostic = hideSargassoDiagnostic;
+
 // Toggle oceans layer
 function toggleOceans() {
     terrainState.showOceans = !terrainState.showOceans;
@@ -1256,6 +1368,28 @@ async function loadTerrainData() {
         }
     } catch (err) {
         console.warn('Could not load marine data:', err);
+    }
+
+    // Load precomputed vertex diagnostic data (25KB vs 9.9MB regions.geojson)
+    try {
+        const response = await fetch('data/vertex_diagnostic_1ce.json');
+        if (response.ok) {
+            terrainState.vertexDiagnostic = await response.json();
+            console.log(`[terrain] Loaded vertex diagnostic: ${Object.keys(terrainState.vertexDiagnostic).length} territories`);
+        }
+    } catch (err) {
+        console.warn('Could not load vertex diagnostic data:', err);
+    }
+
+    // Load snap ghost data (snap targets for blue vertices)
+    try {
+        const response = await fetch('data/snap_ghost_1ce.json');
+        if (response.ok) {
+            terrainState.snapGhost = await response.json();
+            console.log(`[terrain] Loaded snap ghost: ${Object.keys(terrainState.snapGhost).length} territories`);
+        }
+    } catch (err) {
+        console.warn('Could not load snap ghost data:', err);
     }
 }
 
@@ -1725,6 +1859,7 @@ export async function initTerrain() {
     if (terrainState.showCoastlines && terrainState.coastlinesData) {
         updateCoastlinesLayer();
     }
+
 
     // Bring data layers to front
     bringDataLayersToFront();

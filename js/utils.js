@@ -177,15 +177,29 @@ function distanceToGeometryEdge(lon, lat, geometry) {
 export function pointInGeometry(lon, lat, geometry, tolerance = 0) {
     const point = [lon, lat];
 
-    // First check exact point-in-polygon
+    // First check exact point-in-polygon (respecting holes)
     if (geometry.type === 'Polygon') {
         if (pointInPolygon(point, geometry.coordinates[0])) {
+            // Check if point falls inside any hole
+            for (let h = 1; h < geometry.coordinates.length; h++) {
+                if (pointInPolygon(point, geometry.coordinates[h])) {
+                    return false; // Inside a hole, not inside this polygon
+                }
+            }
             return true;
         }
     } else if (geometry.type === 'MultiPolygon') {
         for (const poly of geometry.coordinates) {
             if (pointInPolygon(point, poly[0])) {
-                return true;
+                // Check holes in this polygon
+                let inHole = false;
+                for (let h = 1; h < poly.length; h++) {
+                    if (pointInPolygon(point, poly[h])) {
+                        inHole = true;
+                        break;
+                    }
+                }
+                if (!inHole) return true;
             }
         }
     }

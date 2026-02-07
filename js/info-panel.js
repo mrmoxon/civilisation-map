@@ -969,8 +969,33 @@ export function renderInfoPanel() {
         }
     }
 
-    document.getElementById('info-content').innerHTML = mainContent + historyHtml;
+    // Coords bar (top of panel, always visible)
+    let coordsHtml = '';
+    if (state.selectedLocation?.coords) {
+        const [lon, lat] = state.selectedLocation.coords;
+        const coordStr = `${Math.abs(lat).toFixed(4)}°${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(4)}°${lon >= 0 ? 'E' : 'W'}`;
+        coordsHtml = `<div class="info-coords-bar" id="info-coords-copy" title="Click to copy coordinates" data-coords="${lat.toFixed(4)}, ${lon.toFixed(4)}">${coordStr}</div>`;
+    }
+
+    document.getElementById('info-content').innerHTML = coordsHtml + mainContent + historyHtml;
     panel.style.display = 'block';
+
+    // Coords click-to-copy
+    const coordsEl = document.getElementById('info-coords-copy');
+    if (coordsEl) {
+        coordsEl.addEventListener('click', () => {
+            const text = coordsEl.dataset.coords;
+            navigator.clipboard.writeText(text).then(() => {
+                coordsEl.classList.add('copied');
+                const original = coordsEl.textContent;
+                coordsEl.textContent = 'Copied!';
+                setTimeout(() => {
+                    coordsEl.textContent = original;
+                    coordsEl.classList.remove('copied');
+                }, 1200);
+            });
+        });
+    }
 
     // Add event listeners for jump buttons
     document.querySelectorAll('.info-jump-btn').forEach(btn => {

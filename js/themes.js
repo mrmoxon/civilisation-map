@@ -248,4 +248,24 @@ export function setupSettings() {
     } catch (e) {
         // localStorage might not be available
     }
+
+    // Rounded corners toggle
+    const roundedCheckbox = document.getElementById('rounded-corners-checkbox');
+    if (roundedCheckbox) {
+        roundedCheckbox.addEventListener('change', () => {
+            document.body.classList.toggle('rounded-corners', roundedCheckbox.checked);
+            try {
+                localStorage.setItem('map-rounded-corners', roundedCheckbox.checked ? 'on' : 'off');
+            } catch (e) {}
+        });
+
+        // Load saved preference
+        try {
+            const saved = localStorage.getItem('map-rounded-corners');
+            if (saved === 'on') {
+                roundedCheckbox.checked = true;
+                document.body.classList.add('rounded-corners');
+            }
+        } catch (e) {}
+    }
 }

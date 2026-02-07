@@ -108,6 +108,13 @@
     <div id="leaderboard" class="leaderboard">
         <div class="leaderboard-header">
             <h4>Leaderboard</h4>
+            <button class="search-btn" id="search-btn" title="Search">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="6.5" cy="6.5" r="5"/>
+                    <line x1="10.5" y1="10.5" x2="15" y2="15" stroke-linecap="round"/>
+                </svg>
+                <span>Search</span>
+            </button>
             <button class="filter-btn" id="filter-btn" title="Filter">
                 <svg width="14" height="12" viewBox="0 0 14 12" fill="currentColor">
                     <rect x="0" y="0" width="14" height="2" rx="1"/>
@@ -117,10 +124,20 @@
                 <span>Filter</span>
             </button>
         </div>
+        <div id="leaderboard-search" class="leaderboard-search hidden">
+            <div class="search-input-wrapper">
+                <svg class="search-input-icon" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="6.5" cy="6.5" r="5"/>
+                    <line x1="10.5" y1="10.5" x2="15" y2="15" stroke-linecap="round"/>
+                </svg>
+                <input type="text" id="search-input" class="search-input" placeholder="Search polities..." autocomplete="off">
+                <button id="search-clear" class="search-clear hidden">&times;</button>
+            </div>
+        </div>
+        <div id="search-results" class="search-results hidden"></div>
         <div id="leaderboard-filters" class="leaderboard-filters hidden">
-            <button class="filter-option active" data-sort="all">All</button>
             <button class="filter-option" data-sort="area">Area</button>
-            <button class="filter-option" data-sort="cities">Cities</button>
+            <button class="filter-option active" data-sort="cities">Cities</button>
             <button class="filter-option" data-sort="age">Age</button>
         </div>
         <div id="leaderboard-content" class="leaderboard-content">
@@ -588,10 +605,6 @@
                                 <div class="theme-preview theme-preview-light"></div>
                                 <span class="theme-name">Light Modern</span>
                             </button>
-                            <button class="theme-option" data-theme="dark-modern">
-                                <div class="theme-preview theme-preview-dark"></div>
-                                <span class="theme-name">Dark Modern</span>
-                            </button>
                             <button class="theme-option" data-theme="neutral-modern">
                                 <div class="theme-preview theme-preview-neutral"></div>
                                 <span class="theme-name">Neutral</span>
@@ -600,6 +613,17 @@
                                 <div class="theme-preview theme-preview-offwhite"></div>
                                 <span class="theme-name">Offwhite</span>
                             </button>
+                            <button class="theme-option" data-theme="dark-modern">
+                                <div class="theme-preview theme-preview-dark"></div>
+                                <span class="theme-name">Dark Modern</span>
+                            </button>
+                        </div>
+                        <div class="rounded-corners-row">
+                            <span class="layout-label">Rounded corners</span>
+                            <label class="toggle-switch" id="rounded-corners-toggle">
+                                <input type="checkbox" id="rounded-corners-checkbox">
+                                <span class="toggle-slider"></span>
+                            </label>
                         </div>
                     </div>
                     <!-- Crosshair Section -->
@@ -657,6 +681,20 @@
                                 </div>
                                 <span class="crosshair-name">Target</span>
                             </button>
+                        </div>
+                    </div>
+                    <!-- Coastline Diagnostic Section -->
+                    <div class="view-section">
+                        <div class="view-section-title">Coastline Diagnostic</div>
+                        <div class="layout-options">
+                            <div class="layout-row">
+                                <span class="layout-label">Territory vertex overlay</span>
+                                <select id="snap-mode" class="speed-select" title="Diagnostic mode">
+                                    <option value="off" selected>Off</option>
+                                    <option value="vertices">Vertex diagnostic</option>
+                                    <option value="ghost">Snap ghost</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                     <!-- Layout Section -->

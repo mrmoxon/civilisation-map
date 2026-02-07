@@ -8,6 +8,10 @@ export const state = {
     // Polity founding years lookup (name -> earliest FromYear)
     polityFoundingYears: {},
 
+    // Temporal index (built after polity load, used by updateMap)
+    // Polities sorted by FromYear, with parenthetical entries pre-filtered out
+    polityIndex: null, // { sorted: Feature[], fromYears: number[] }
+
     // UI State
     currentYear: 1,
     showPolities: true,
@@ -15,10 +19,13 @@ export const state = {
     territoryPalette: 'default',
 
     // Leaderboard & Stats
-    leaderboardSort: 'all',
+    leaderboardSort: 'cities',
     leaderboardCollapsed: false,
     leaderboardExpanded: false,
     filterPanelOpen: false,
+    searchOpen: false,
+    searchQuery: '',
+    searchSelectedIndex: -1,
     statsCollapsed: true,
 
     // Info Panel
@@ -78,6 +85,12 @@ export const state = {
 
     // Location history stack (for leaderboard navigation)
     locationHistory: [], // Array of { coords: [lat, lng], zoom, territoryName, territoryColor } - navigation history stack
+
+    // Coastline diagnostic
+    vertexDiagnostic: false,     // show colored vertex dots on territory polygons
+    vertexDiagnosticLayer: null, // Leaflet layer group for diagnostic markers
+    snapGhost: false,            // show snap ghost (snapped positions + connector lines)
+    snapGhostLayer: null,        // Leaflet layer group for ghost visualization
 
     // Pinned toggles
     pinnedToggles: [] // Array of toggle IDs that are pinned (e.g., ['rivers', 'oceans'])

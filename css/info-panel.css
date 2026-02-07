@@ -905,3 +905,26 @@
     color: var(--text-tertiary);
     flex-shrink: 0;
 }
+
+/* Coords bar (top of info panel) */
+.info-coords-bar {
+    padding: 4px 10px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-align: right;
+    cursor: pointer;
+    transition: color 0.15s;
+    font-family: monospace;
+    letter-spacing: 0.02em;
+    user-select: all;
+    background: var(--surface-secondary);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.info-coords-bar:hover {
+    color: var(--text-primary);
+}
+
+.info-coords-bar.copied {
+    color: var(--accent-success);
+}

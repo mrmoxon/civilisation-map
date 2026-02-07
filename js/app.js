@@ -7,14 +7,16 @@ import { setupInfoPanel, unpinInfoPanel, updateInfoPanel, showPointInfo, hideTim
 import { setupLeaderboard, updateLeaderboardPosition } from './leaderboard.js';
 import { setupGraphPanel, updateGraph, preloadGraphData } from './graph-panel.js';
 import { setupHeatmapControls } from './heatmap.js';
-import { initTerrain } from './terrain.js';
+import { initTerrain, terrainState } from './terrain.js';
 import { setupSettings } from './themes.js';
+import { markStart, markEnd, recordMapUpdate, recordDataLoad, recordFirstRender } from './perf.js';
 
 // Store reference to original updateMap for graph integration
 let originalUpdateMap = updateMap;
 
 // Enhanced updateMap that also updates graph and info panel when visible
 function updateMapWithGraph(year) {
+    const t0 = performance.now();
     const visiblePolities = originalUpdateMap(year);
 
     // Clear timeline history only if this is NOT a history jump (manual timeline change)
@@ -32,6 +34,7 @@ function updateMapWithGraph(year) {
         updateGraph(year, visiblePolities);
     }
 
+    recordMapUpdate(performance.now() - t0);
     return visiblePolities;
 }
 
@@ -73,10 +76,14 @@ async function init() {
     setupHeatmapControls();
     setupSettings();
 
-    // Initialize terrain layers (async - loads rivers/coastlines data)
+    // Initialize terrain layers (async - loads rivers/coastlines/regions data)
     await initTerrain();
 
-    // Load data
+    // Build land mask from regions data and setup diagnostic controls
+    setupDiagnosticSettings();
+
+    // Load data — progressive: render as soon as first polity file arrives
+    markStart('dataLoad');
     loadAllData(
         // Progress callback
         (type, message) => {
@@ -84,13 +91,21 @@ async function init() {
                 document.getElementById('loading-polities').textContent = message;
             } else if (type === 'cities') {
                 document.getElementById('loading-cities').textContent = message;
+            } else if (type === 'polities-ready') {
+                // First polity file parsed — show the map immediately
+                document.getElementById('loading').style.display = 'none';
+                markStart('firstRender');
+                updateMapWithGraph(1);
+                recordFirstRender(markEnd('firstRender'));
+                updateYearInput(1);
+            } else if (type === 'polities-update') {
+                // Additional polity file parsed — re-render with more data
+                updateMapWithGraph(state.currentYear);
             }
         },
-        // Complete callback
+        // All data complete
         () => {
-            document.getElementById('loading').style.display = 'none';
-            updateMapWithGraph(1);
-            updateYearInput(1);
+            recordDataLoad(markEnd('dataLoad'));
         }
     );
 
@@ -451,6 +466,39 @@ function setupLayoutSettings() {
             setTimeout(updateLeaderboardPosition, 50);
         });
     });
+}
+
+// Setup vertex diagnostic controls
+function setupDiagnosticSettings() {
+    const modeSelect = document.getElementById('snap-mode');
+
+    const savedMode = localStorage.getItem('diagnosticMode') || 'off';
+    if (modeSelect) modeSelect.value = savedMode;
+
+    applyDiagnosticMode(savedMode);
+
+    if (modeSelect) {
+        modeSelect.addEventListener('change', function() {
+            const mode = this.value;
+            applyDiagnosticMode(mode);
+            localStorage.setItem('diagnosticMode', mode);
+            // Clear cached layers so they rebuild with new mode
+            if (state.vertexDiagnosticLayer) {
+                state.map.removeLayer(state.vertexDiagnosticLayer);
+                state.vertexDiagnosticLayer = null;
+            }
+            if (state.snapGhostLayer) {
+                state.map.removeLayer(state.snapGhostLayer);
+                state.snapGhostLayer = null;
+            }
+            if (window.updateMapWithGraph) window.updateMapWithGraph(state.currentYear);
+        });
+    }
+}
+
+function applyDiagnosticMode(mode) {
+    state.vertexDiagnostic = (mode === 'vertices' || mode === 'ghost');
+    state.snapGhost = (mode === 'ghost');
 }
 
 init();

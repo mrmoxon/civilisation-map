@@ -2,6 +2,7 @@
 import { state } from './state.js';
 import { updateMap as baseUpdateMap } from './map.js';
 import { updateLeaderboardPosition } from './leaderboard.js';
+import { recordTimelineZoom } from './perf.js';
 
 // Zoom levels: [windowSize, label, majorInterval, minorInterval, showLabelsEvery, showDecades]
 // All levels now show century (100y) markers at minimum for better granularity
@@ -214,14 +215,18 @@ function panTimeline(direction) {
 // Zoom in
 function zoomIn() {
     if (currentZoomLevel >= ZOOM_LEVELS.length - 1) return;
+    const t0 = performance.now();
 
     currentZoomLevel++;
     centerWindowOnYear(state.currentYear);
+
+    recordTimelineZoom(performance.now() - t0);
 }
 
 // Zoom out
 function zoomOut() {
     if (currentZoomLevel <= 0) return;
+    const t0 = performance.now();
 
     currentZoomLevel--;
 
@@ -234,6 +239,8 @@ function zoomOut() {
     } else {
         centerWindowOnYear(state.currentYear);
     }
+
+    recordTimelineZoom(performance.now() - t0);
 }
 
 export function updateYearInput(year) {
