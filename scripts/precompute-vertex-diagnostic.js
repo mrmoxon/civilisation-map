@@ -734,16 +734,18 @@ console.log(`Walked borders: ${totalWalkedSegments} walked + ${totalOriginalSegm
 console.log(`Computed in ${Date.now() - t4}ms`);
 console.log(`Saved to ${walkedPath} (${(walkedSize / 1024).toFixed(0)} KB)`);
 
-// --- Continuous walked borders: one closed loop per ring ---
-// Walk each ring vertex-by-vertex:
-//   Green vertex → original polygon coordinate (inland boundary)
-//   Blue vertex → snap point on coastline + intermediates between consecutive blues
-// Output: { "Name": [ ring0_coords, ring1_coords, ... ] }
-// Each ring is a single coordinate array forming a closed loop.
+// --- Continuous walked borders ---
+// Two types of polylines per ring, kept separate:
+//   1) Green segments: runs of inland vertices → original polygon coords
+//   2) Coast walks: snap points grouped by feature, sorted by coastline param
+// Plus connector segments linking green endpoints to nearest coast walk endpoints
+// at each green↔blue transition in the ring.
+// Output: { "Name": [ ring0: [polyline, ...], ring1: [...], ... ] }
 console.log('\nComputing continuous walked borders...');
 const t5 = Date.now();
 const contOutput = {};
-let contRings = 0, contPolylines = 0, contIslandLoops = 0;
+let contRings = 0, contPolylines = 0, contIslandLoops = 0, contGapCount = 0;
+const contGaps = {}; // name → [ ringIdx → [{red, purple}, ...] ]
 
 for (const f of visible) {
     const name = f.properties.Name;
@@ -770,18 +772,16 @@ for (const f of visible) {
         const polylines = [];
 
         // 1) Green segments: runs of non-blue vertices → original polygon coords
-        const greenSegments = [];
         let greenRun = [];
         for (let i = 0; i < n; i++) {
             if (!cls[i] || !snapInfos[i]) {
                 greenRun.push(roundCoord(ring[i]));
             } else {
-                if (greenRun.length >= 2) greenSegments.push(greenRun);
+                if (greenRun.length >= 2) polylines.push(greenRun);
                 greenRun = [];
             }
         }
-        if (greenRun.length >= 2) greenSegments.push(greenRun);
-        for (const seg of greenSegments) polylines.push(seg);
+        if (greenRun.length >= 2) polylines.push(greenRun);
 
         // 2) Coastline walks: group snap points by feature, sort by param, walk
         const groups = {}; // featureIdx → [snapInfo, ...]
@@ -804,7 +804,6 @@ for (const f of visible) {
             const isClosed = dx * dx + dy * dy <= 0.0001;
 
             if (snaps.length === 1 && isClosed) {
-                // Single snap on closed feature → full island perimeter
                 const snap = snaps[0];
                 const islandVerts = walkFullIsland(fIdx, snap.segIdx, snap.t);
                 if (islandVerts.length > 0) {
@@ -813,7 +812,6 @@ for (const f of visible) {
                     contIslandLoops++;
                 }
             } else if (snaps.length >= 2) {
-                // Sort by coastline parameter, walk forward
                 snaps.sort((a, b) => (a.segIdx + a.t) - (b.segIdx + b.t));
                 const pathCoords = [roundCoord(snaps[0].point)];
                 for (let k = 1; k < snaps.length; k++) {
@@ -845,16 +843,44 @@ for (const f of visible) {
             }
         }
 
+        // 3) Gap markers: at each green↔blue transition, record endpoints
+        //    Red = green (inland) side, Purple = blue (coast snap) side
+        const gaps = [];
+        for (let i = 0; i < n; i++) {
+            const iBlue = cls[i] && snapInfos[i];
+            const ni = (i + 1) % n;
+            const nBlue = cls[ni] && snapInfos[ni];
+
+            if (iBlue && !nBlue) {
+                gaps.push({
+                    p: roundCoord(snapInfos[i].point),  // purple: coast
+                    r: roundCoord(ring[ni])              // red: inland
+                });
+                contGapCount++;
+            } else if (!iBlue && nBlue) {
+                gaps.push({
+                    r: roundCoord(ring[i]),              // red: inland
+                    p: roundCoord(snapInfos[ni].point)   // purple: coast
+                });
+                contGapCount++;
+            }
+        }
+
         territoryRings.push(polylines);
+        if (gaps.length > 0) {
+            if (!contGaps[name]) contGaps[name] = [];
+            contGaps[name][r] = gaps;
+        }
         if (polylines.length > 0) contRings++;
     }
     contOutput[name] = territoryRings;
 }
 
+const contFinal = { polylines: contOutput, gaps: contGaps };
 const contPath = path.join(ROOT, 'data/walked_borders_continuous_1ce.json');
-fs.writeFileSync(contPath, JSON.stringify(contOutput));
+fs.writeFileSync(contPath, JSON.stringify(contFinal));
 const contSize = fs.statSync(contPath).size;
-console.log(`Continuous walked borders: ${contRings} rings, ${contPolylines} coast polylines, ${contIslandLoops} island loops`);
+console.log(`Continuous walked borders: ${contRings} rings, ${contPolylines} coast polylines, ${contIslandLoops} island loops, ${contGapCount} gap markers`);
 console.log(`Computed in ${Date.now() - t5}ms`);
 console.log(`Saved to ${contPath} (${(contSize / 1024).toFixed(0)} KB)`);
 console.log('Done!');

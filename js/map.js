@@ -1,6 +1,6 @@
 // Leaflet map and rendering
 import { state } from './state.js';
-import { getColor, formatYear, formatPopulation, getPopulationForYear, getCityRadius, getCityColor, pointInGeometry, getCentroid, getVisualCenter, findRiverNearPoint } from './utils.js';
+import { getColor, darkenColor, formatYear, formatPopulation, getPopulationForYear, getCityRadius, getCityColor, pointInGeometry, getCentroid, getVisualCenter, findRiverNearPoint } from './utils.js';
 import { showPolityInfo, showCompoundInfo, hideInfo, pinInfoPanel } from './info-panel.js';
 import { updateLeaderboard } from './leaderboard.js';
 import { terrainState } from './terrain.js';
@@ -469,14 +469,20 @@ export function updateMap(year) {
         state.coastlineWalkContinuousLayer = null;
     }
     if (state.coastlineWalkContinuous && !state.coastlineWalkContinuousLayer && terrainState.walkedBordersContinuous && state.showPolities) {
-        const walkData = terrainState.walkedBordersContinuous;
+        const walkFile = terrainState.walkedBordersContinuous;
+        const walkData = walkFile.polylines || walkFile; // support new {polylines, gaps} format
+        const gapData = walkFile.gaps || {};
         state.coastlineWalkContinuousLayer = L.layerGroup();
-        let ringCount = 0;
+        let ringCount = 0, gapMarkerCount = 0;
 
         for (const f of visiblePolities) {
             const name = f.properties.Name;
             const rings = walkData[name];
             if (!rings) continue;
+
+            // Darken the polity color for the walk lines
+            const baseColor = getColor(name);
+            const darkColor = darkenColor(baseColor, 0.5);
 
             for (const ringPolylines of rings) {
                 if (!ringPolylines) continue;
@@ -484,18 +490,51 @@ export function updateMap(year) {
                     if (!coords || coords.length < 2) continue;
                     const latLngs = coords.map(c => [c[1], c[0]]);
                     L.polyline(latLngs, {
-                        color: '#00ffaa',
+                        color: darkColor,
                         weight: 2,
-                        opacity: 0.8,
+                        opacity: 0.9,
                         interactive: false,
                         pane: 'diagnosticPane'
                     }).addTo(state.coastlineWalkContinuousLayer);
                     ringCount++;
                 }
             }
+
+            // Gap markers: red = inland endpoint, purple = coast endpoint
+            const territoryGaps = gapData[name];
+            if (territoryGaps) {
+                for (const ringGaps of territoryGaps) {
+                    if (!ringGaps) continue;
+                    for (const gap of ringGaps) {
+                        if (gap.r) {
+                            L.circleMarker([gap.r[1], gap.r[0]], {
+                                radius: 5, color: '#ff0000', fillColor: '#ff0000',
+                                fillOpacity: 0.9, weight: 1, interactive: false,
+                                pane: 'diagnosticPane'
+                            }).addTo(state.coastlineWalkContinuousLayer);
+                            gapMarkerCount++;
+                        }
+                        if (gap.p) {
+                            L.circleMarker([gap.p[1], gap.p[0]], {
+                                radius: 5, color: '#aa00ff', fillColor: '#aa00ff',
+                                fillOpacity: 0.9, weight: 1, interactive: false,
+                                pane: 'diagnosticPane'
+                            }).addTo(state.coastlineWalkContinuousLayer);
+                            gapMarkerCount++;
+                        }
+                        if (gap.r && gap.p) {
+                            L.polyline([[gap.r[1], gap.r[0]], [gap.p[1], gap.p[0]]], {
+                                color: '#00cccc', weight: 1.5, opacity: 0.8,
+                                dashArray: '4,4', interactive: false,
+                                pane: 'diagnosticPane'
+                            }).addTo(state.coastlineWalkContinuousLayer);
+                        }
+                    }
+                }
+            }
         }
         state.coastlineWalkContinuousLayer.addTo(state.map);
-        console.log(`[diagnostic] Continuous walk: ${ringCount} rings`);
+        console.log(`[diagnostic] Continuous walk: ${ringCount} polylines, ${gapMarkerCount} gap markers`);
     }
 
     // Update leaderboard
